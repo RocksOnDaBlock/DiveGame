@@ -12,6 +12,7 @@
             background-color: #04142d;
             color: white;
             overflow: hidden;
+            touch-action: none;
         }
         #game-container {
             position: relative;
@@ -25,6 +26,7 @@
             left: 0;
             width: 100%;
             height: 100%;
+            touch-action: none;
         }
         #ui-container {
             position: absolute;
@@ -144,6 +146,46 @@
             border-radius: 5px;
             font-size: 0.8em;
         }
+        #mobile-controls {
+            position: absolute;
+            bottom: 50px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 15;
+        }
+        .mobile-button {
+            width: 50px;
+            height: 50px;
+            background-color: rgba(0, 170, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            color: white;
+            user-select: none;
+        }
+        #collect-button {
+            position: absolute;
+            bottom: 50px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background-color: rgba(255, 100, 100, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            color: white;
+            z-index: 15;
+        }
         @media (max-width: 600px) {
             #ui-container {
                 flex-direction: column;
@@ -197,6 +239,19 @@
         <div id="controls-info">
             Controls: Arrow keys to move | Space to collect resources
         </div>
+        
+        <div id="mobile-controls" style="display: none;">
+            <div class="mobile-button" id="left-button">←</div>
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <div class="mobile-button" id="up-button">↑</div>
+                <div class="mobile-button" id="down-button" style="margin-top: 10px;">↓</div>
+            </div>
+            <div class="mobile-button" id="right-button">→</div>
+        </div>
+        
+        <div id="collect-button" style="display: none;">
+            COLLECT
+        </div>
     </div>
 
     <script>
@@ -208,7 +263,6 @@
                 width: 30,
                 height: 50,
                 speed: 3,
-                maxDepth: 100,
                 oxygenCapacity: 100,
                 oxygenLevel: 100,
                 oxygenDepletionRate: 0.2,
@@ -241,7 +295,8 @@
             backgroundColor: '#04142d',
             lastTimestamp: 0,
             deltaTime: 0,
-            paused: false
+            paused: false,
+            isMobile: false
         };
 
         // Resource Definitions
@@ -255,24 +310,19 @@
 
         // Upgrade Definitions
         const upgrades = [
-            { id: "oxygen1", name: "Oxygen Tank I", description: "Increase oxygen capacity by 50", cost: { seaweed: 20, coral: 5 }, effect: () => { gameState.diver.oxygenCapacity += 50; } },
-            { id: "oxygen2", name: "Oxygen Tank II", description: "Increase oxygen capacity by 100", cost: { seaweed: 50, coral: 20, pearl: 5 }, effect: () => { gameState.diver.oxygenCapacity += 100; }, requires: ["oxygen1"] },
-            { id: "oxygen3", name: "Oxygen Tank III", description: "Increase oxygen capacity by 200", cost: { coral: 50, pearl: 20, crystal: 5 }, effect: () => { gameState.diver.oxygenCapacity += 200; }, requires: ["oxygen2"] },
+            { id: "oxygen1", name: "Oxygen Tank I", description: "Increase oxygen capacity by 50", cost: { seaweed: 10 }, effect: () => { gameState.diver.oxygenCapacity += 50; } },
+            { id: "oxygen2", name: "Oxygen Tank II", description: "Increase oxygen capacity by 100", cost: { seaweed: 20, coral: 5 }, effect: () => { gameState.diver.oxygenCapacity += 100; }, requires: ["oxygen1"] },
+            { id: "oxygen3", name: "Oxygen Tank III", description: "Increase oxygen capacity by 200", cost: { coral: 15, pearl: 5 }, effect: () => { gameState.diver.oxygenCapacity += 200; }, requires: ["oxygen2"] },
             
-            { id: "depth1", name: "Pressure Suit I", description: "Dive to 300m", cost: { seaweed: 30, coral: 10 }, effect: () => { gameState.diver.maxDepth = 300; } },
-            { id: "depth2", name: "Pressure Suit II", description: "Dive to 800m", cost: { coral: 40, pearl: 15 }, effect: () => { gameState.diver.maxDepth = 800; }, requires: ["depth1"] },
-            { id: "depth3", name: "Pressure Suit III", description: "Dive to 1500m", cost: { pearl: 40, crystal: 10 }, effect: () => { gameState.diver.maxDepth = 1500; }, requires: ["depth2"] },
-            { id: "depth4", name: "Pressure Suit IV", description: "Dive to 3000m", cost: { crystal: 30, treasure: 5 }, effect: () => { gameState.diver.maxDepth = 3000; }, requires: ["depth3"] },
+            { id: "speed1", name: "Fins I", description: "Increase swimming speed", cost: { seaweed: 15 }, effect: () => { gameState.diver.speed += 1; } },
+            { id: "speed2", name: "Fins II", description: "Further increase swimming speed", cost: { coral: 10, pearl: 3 }, effect: () => { gameState.diver.speed += 1.5; }, requires: ["speed1"] },
+            { id: "speed3", name: "Propulsion Aid", description: "Significant speed boost", cost: { pearl: 10, crystal: 2 }, effect: () => { gameState.diver.speed += 2; }, requires: ["speed2"] },
             
-            { id: "speed1", name: "Fins I", description: "Increase swimming speed", cost: { seaweed: 25, coral: 5 }, effect: () => { gameState.diver.speed += 1; } },
-            { id: "speed2", name: "Fins II", description: "Further increase swimming speed", cost: { coral: 30, pearl: 10 }, effect: () => { gameState.diver.speed += 1.5; }, requires: ["speed1"] },
-            { id: "speed3", name: "Propulsion Aid", description: "Significant speed boost", cost: { pearl: 25, crystal: 8, treasure: 1 }, effect: () => { gameState.diver.speed += 2; }, requires: ["speed2"] },
+            { id: "collector1", name: "Collection Net", description: "Increase collection range", cost: { seaweed: 20, coral: 5 }, effect: () => { gameState.diver.collectRange += 20; } },
+            { id: "collector2", name: "Magnetic Collector", description: "Further increase collection range", cost: { pearl: 8, crystal: 3 }, effect: () => { gameState.diver.collectRange += 40; }, requires: ["collector1"] },
             
-            { id: "collector1", name: "Collection Net", description: "Increase collection range", cost: { seaweed: 40, coral: 15 }, effect: () => { gameState.diver.collectRange += 20; } },
-            { id: "collector2", name: "Magnetic Collector", description: "Further increase collection range", cost: { pearl: 30, crystal: 10 }, effect: () => { gameState.diver.collectRange += 40; }, requires: ["collector1"] },
-            
-            { id: "efficiency1", name: "Breathing Regulator", description: "Reduce oxygen consumption by 20%", cost: { coral: 25, pearl: 8 }, effect: () => { gameState.diver.oxygenDepletionRate *= 0.8; } },
-            { id: "efficiency2", name: "Advanced Regulator", description: "Reduce oxygen consumption by another 20%", cost: { crystal: 15, treasure: 2 }, effect: () => { gameState.diver.oxygenDepletionRate *= 0.8; }, requires: ["efficiency1"] }
+            { id: "efficiency1", name: "Breathing Regulator", description: "Reduce oxygen consumption by 20%", cost: { coral: 12, pearl: 4 }, effect: () => { gameState.diver.oxygenDepletionRate *= 0.8; } },
+            { id: "efficiency2", name: "Advanced Regulator", description: "Reduce oxygen consumption by another 20%", cost: { crystal: 6, treasure: 1 }, effect: () => { gameState.diver.oxygenDepletionRate *= 0.8; }, requires: ["efficiency1"] }
         ];
 
         // Track purchased upgrades
@@ -292,9 +342,15 @@
         const shopItems = document.getElementById('shop-items');
         const closeShopButton = document.getElementById('close-shop');
         const messageBox = document.getElementById('message-box');
+        const controlsInfo = document.getElementById('controls-info');
+        const mobileControls = document.getElementById('mobile-controls');
+        const collectButton = document.getElementById('collect-button');
 
         // Initialize game
         function initGame() {
+            // Check if mobile device
+            checkIfMobile();
+            
             // Set canvas size
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
@@ -311,6 +367,18 @@
             
             // Start game loop
             requestAnimationFrame(gameLoop);
+        }
+
+        function checkIfMobile() {
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 800;
+            
+            gameState.isMobile = isMobile;
+            
+            if (isMobile) {
+                mobileControls.style.display = 'flex';
+                collectButton.style.display = 'flex';
+                controlsInfo.textContent = 'Tap buttons to move and collect';
+            }
         }
 
         function resizeCanvas() {
@@ -382,67 +450,45 @@
             shopButton.addEventListener('click', toggleShop);
             closeShopButton.addEventListener('click', toggleShop);
             
-            // Touch controls (simple implementation)
-            let touchStartX, touchStartY;
+            // Mobile controls
+            if (gameState.isMobile) {
+                setupMobileControls();
+            }
+        }
+        
+        function setupMobileControls() {
+            // Direction buttons
+            const upButton = document.getElementById('up-button');
+            const downButton = document.getElementById('down-button');
+            const leftButton = document.getElementById('left-button');
+            const rightButton = document.getElementById('right-button');
             
-            canvas.addEventListener('touchstart', (e) => {
-                if (e.touches.length > 0) {
-                    touchStartX = e.touches[0].clientX;
-                    touchStartY = e.touches[0].clientY;
-                }
-            });
+            // Touch events for direction buttons
+            upButton.addEventListener('touchstart', () => { gameState.keys.up = true; });
+            upButton.addEventListener('touchend', () => { gameState.keys.up = false; });
             
-            canvas.addEventListener('touchmove', (e) => {
-                if (e.touches.length > 0) {
-                    const touchX = e.touches[0].clientX;
-                    const touchY = e.touches[0].clientY;
-                    
-                    // Reset keys
-                    gameState.keys.up = false;
-                    gameState.keys.down = false;
-                    gameState.keys.left = false;
-                    gameState.keys.right = false;
-                    
-                    // Set direction based on touch movement
-                    const dx = touchX - touchStartX;
-                    const dy = touchY - touchStartY;
-                    
-                    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-                        if (Math.abs(dx) > Math.abs(dy)) {
-                            gameState.keys.left = dx < 0;
-                            gameState.keys.right = dx > 0;
-                        } else {
-                            gameState.keys.up = dy < 0;
-                            gameState.keys.down = dy > 0;
-                        }
-                    }
-                    
+            downButton.addEventListener('touchstart', () => { gameState.keys.down = true; });
+            downButton.addEventListener('touchend', () => { gameState.keys.down = false; });
+            
+            leftButton.addEventListener('touchstart', () => { gameState.keys.left = true; });
+            leftButton.addEventListener('touchend', () => { gameState.keys.left = false; });
+            
+            rightButton.addEventListener('touchstart', () => { gameState.keys.right = true; });
+            rightButton.addEventListener('touchend', () => { gameState.keys.right = false; });
+            
+            // Collect button
+            const collectBtn = document.getElementById('collect-button');
+            collectBtn.addEventListener('touchstart', () => { gameState.keys.space = true; });
+            collectBtn.addEventListener('touchend', () => { gameState.keys.space = false; });
+            
+            // Prevent default touch behavior to avoid scrolling
+            document.addEventListener('touchmove', (e) => {
+                if (e.target === canvas || 
+                    e.target.className === 'mobile-button' || 
+                    e.target.id === 'collect-button') {
                     e.preventDefault();
                 }
-            });
-            
-            canvas.addEventListener('touchend', () => {
-                gameState.keys.up = false;
-                gameState.keys.down = false;
-                gameState.keys.left = false;
-                gameState.keys.right = false;
-            });
-            
-            // Double tap for resource collection
-            let lastTapTime = 0;
-            canvas.addEventListener('touchend', (e) => {
-                const currentTime = new Date().getTime();
-                const tapLength = currentTime - lastTapTime;
-                
-                if (tapLength < 300 && tapLength > 0) {
-                    // Double tap detected
-                    gameState.keys.space = true;
-                    setTimeout(() => { gameState.keys.space = false; }, 100);
-                    e.preventDefault();
-                }
-                
-                lastTapTime = currentTime;
-            });
+            }, { passive: false });
         }
 
         function updateKeys(key, isPressed) {
@@ -592,8 +638,8 @@
             // Constrain diver to game bounds
             gameState.diver.x = Math.max(0, Math.min(gameState.gameWidth, gameState.diver.x));
             
-            // Constrain vertical movement based on max depth and surface
-            gameState.diver.y = Math.max(50, Math.min(gameState.diver.maxDepth, gameState.diver.y));
+            // Allow diving to any depth, just constrain to game bounds
+            gameState.diver.y = Math.max(50, Math.min(gameState.gameHeight, gameState.diver.y));
             
             // Update current depth and max reached
             gameState.currentDepth = Math.floor(gameState.diver.y);
@@ -608,7 +654,7 @@
             gameState.camera.y = Math.max(0, Math.min(gameState.gameHeight - canvas.height, gameState.camera.y));
             
             // Update oxygen level (faster depletion at deeper depths)
-            const depthFactor = 1 + (gameState.currentDepth / 1000);
+            const depthFactor = 1 + (gameState.currentDepth / 500); // Less severe depth penalty
             gameState.diver.oxygenLevel -= gameState.diver.oxygenDepletionRate * depthFactor * gameState.deltaTime * 60;
             
             // Clamp oxygen level
@@ -829,7 +875,11 @@
             ctx.font = '14px Arial';
             ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
             
-            for (let depth = 0; depth <= gameState.diver.maxDepth; depth += 100) {
+            const startDepth = Math.floor(gameState.camera.y / 100) * 100;
+            
+            for (let depth = startDepth; depth <= startDepth + canvas.height + 100; depth += 100) {
+                if (depth < 0) continue;
+                
                 const y = depth - gameState.camera.y;
                 
                 // Only draw if in view
@@ -847,7 +897,7 @@
 
         function renderDepthEffect() {
             // Add vignette effect that increases with depth
-            const depthFactor = Math.min(0.7, (gameState.currentDepth / gameState.diver.maxDepth) * 0.7);
+            const depthFactor = Math.min(0.7, (gameState.currentDepth / 2000) * 0.7);
             
             const gradient = ctx.createRadialGradient(
                 canvas.width / 2, canvas.height / 2, canvas.height / 10,
