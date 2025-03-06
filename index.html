@@ -5,15 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deep Dive Explorer</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700&display=swap');
+        
         * {
             box-sizing: border-box;
-            margin: a0;
+            margin: 0;
             padding: 0;
         }
         body {
             margin: 0;
             padding: 0;
-            font-family: 'Montserrat', 'Arial', sans-serif;
+            font-family: 'Exo 2', 'Arial', sans-serif;
             background-color: #04142d;
             color: white;
             overflow: hidden;
@@ -24,6 +26,7 @@
             width: 100vw;
             height: 100vh;
             overflow: hidden;
+            display: none; /* Hidden initially, shown after title screen */
         }
         #game-canvas {
             position: absolute;
@@ -316,6 +319,132 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             pointer-events: auto;
         }
+        
+        /* Title Screen Styles */
+        #title-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, #0a2342, #04142d);
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        #title-container {
+            text-align: center;
+            padding: 20px;
+            max-width: 800px;
+            position: relative;
+            z-index: 2;
+        }
+        #game-title {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(0, 150, 255, 0.8);
+            animation: glow 3s infinite alternate;
+        }
+        @keyframes glow {
+            from { text-shadow: 0 0 10px rgba(0, 150, 255, 0.8); }
+            to { text-shadow: 0 0 20px rgba(0, 200, 255, 1); }
+        }
+        #title-subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 40px;
+            color: #29b6f6;
+        }
+        #play-button {
+            font-size: 1.4rem;
+            padding: 15px 40px;
+            background-color: #0288d1;
+            margin-top: 20px;
+            border-radius: 30px;
+        }
+        #bubbles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
+            animation: float linear infinite;
+            bottom: -50px;
+        }
+        @keyframes float {
+            0% { transform: translateY(0) rotate(0); }
+            100% { transform: translateY(-100vh) rotate(360deg); }
+        }
+        
+        /* Customization Panel */
+        #customization-panel {
+            background-color: rgba(0, 20, 40, 0.8);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 20px;
+            max-width: 400px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(0, 150, 255, 0.3);
+        }
+        #customization-title {
+            font-size: 1.2rem;
+            color: #29b6f6;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .color-option {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin: 5px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .color-option.selected {
+            border-color: white;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        }
+        .option-row {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        #diver-preview {
+            width: 100px;
+            height: 100px;
+            margin: 15px auto;
+            position: relative;
+        }
+        .preview-circle {
+            position: absolute;
+            border-radius: 50%;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #resume-game-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 31;
+            padding: 10px 15px;
+            font-size: 1rem;
+            display: none;
+        }
+        
         @media (max-width: 768px) {
             #ui-container {
                 flex-direction: column;
@@ -351,10 +480,56 @@
                 height: 60px;
                 font-size: 14px;
             }
+            #game-title {
+                font-size: 2.5rem;
+            }
+            #title-subtitle {
+                font-size: 1.2rem;
+            }
+            #customization-panel {
+                max-width: 90%;
+                padding: 15px;
+            }
+            .color-option {
+                width: 30px;
+                height: 30px;
+                margin: 3px;
+            }
         }
     </style>
 </head>
 <body>
+    <div id="title-screen">
+        <div id="bubbles"></div>
+        
+        <div id="title-container">
+            <h1 id="game-title">DEEP DIVE</h1>
+            <h2 id="title-subtitle">Explore the depths of the ocean</h2>
+            
+            <div id="customization-panel">
+                <div id="customization-title">Customize Your Diver</div>
+                
+                <div class="option-row">
+                    <div class="color-option selected" style="background-color: #ff9900;" data-color="#ff9900"></div>
+                    <div class="color-option" style="background-color: #ff5252;" data-color="#ff5252"></div>
+                    <div class="color-option" style="background-color: #4caf50;" data-color="#4caf50"></div>
+                    <div class="color-option" style="background-color: #9c27b0;" data-color="#9c27b0"></div>
+                    <div class="color-option" style="background-color: #ffeb3b;" data-color="#ffeb3b"></div>
+                </div>
+                
+                <div id="diver-preview">
+                    <div class="preview-circle" style="width: 80px; height: 80px; background-color: #ff9900;"></div>
+                    <div class="preview-circle" style="width: 30px; height: 15px; background-color: #333; top: 40%; border-radius: 15px 15px 0 0;"></div>
+                    <div class="preview-circle" style="width: 15px; height: 30px; background-color: #555; top: 30%; left: 60%;"></div>
+                </div>
+            </div>
+            
+            <button id="play-button">DIVE IN</button>
+        </div>
+    </div>
+    
+    <button id="resume-game-button">Resume Game</button>
+    
     <div id="game-container">
         <canvas id="game-canvas"></canvas>
         
@@ -420,7 +595,8 @@
                 oxygenLevel: 100,
                 oxygenDepletionRate: 0.2,
                 oxygenReplenishRate: 0.1, // Half the depletion rate
-                collectRange: 40
+                collectRange: 40,
+                color: "#ff9900" // Default color
             },
             resources: {
                 seaweed: 0,
@@ -444,6 +620,10 @@
                 right: false,
                 space: false
             },
+            respawnTimers: {
+                resources: {},
+                oxygen: {}
+            },
             shopOpen: false,
             gameWidth: 2000,
             gameHeight: 5000,
@@ -453,16 +633,26 @@
             paused: false,
             isMobile: false,
             exploredMap: {},
-            hasAvailableUpgrades: false
+            hasAvailableUpgrades: false,
+            gameStarted: false
         };
 
         // Resource Definitions
         const resourceTypes = {
-            seaweed: { name: "Seaweed", minDepth: 0, maxDepth: 300, value: 1, color: "#3cb371", size: 20 },
-            coral: { name: "Coral", minDepth: 50, maxDepth: 500, value: 3, color: "#ff7f50", size: 25 },
-            pearl: { name: "Pearl", minDepth: 150, maxDepth: 800, value: 7, color: "#f0f8ff", size: 15 },
-            crystal: { name: "Crystal", minDepth: 400, maxDepth: 1500, value: 15, color: "#9370db", size: 20 },
-            treasure: { name: "Treasure", minDepth: 800, maxDepth: 3000, value: 50, color: "#ffd700", size: 30 }
+            seaweed: { name: "Seaweed", minDepth: 0, maxDepth: 300, value: 1, color: "#3cb371", size: 20, respawnTime: 60000 },
+            coral: { name: "Coral", minDepth: 50, maxDepth: 500, value: 3, color: "#ff7f50", size: 25, respawnTime: 90000 },
+            pearl: { name: "Pearl", minDepth: 150, maxDepth: 800, value: 7, color: "#f0f8ff", size: 15, respawnTime: 120000 },
+            crystal: { name: "Crystal", minDepth: 400, maxDepth: 1500, value: 15, color: "#9370db", size: 20, respawnTime: 180000 },
+            treasure: { name: "Treasure", minDepth: 800, maxDepth: 3000, value: 50, color: "#ffd700", size: 30, respawnTime: 300000 }
+        };
+
+        // Oxygen tank definition for collectibles
+        const oxygenTank = {
+            name: "Oxygen",
+            color: "#00aaff",
+            size: 15,
+            value: 25, // Amount of oxygen to replenish
+            respawnTime: 30000 // 30 seconds
         };
 
         // Upgrade Definitions - Organized by categories
@@ -485,7 +675,7 @@
         ];
 
         // Track purchased upgrades
-        const purchasedUpgrades = [];
+        let purchasedUpgrades = [];
 
         // Canvas setup
         const canvas = document.getElementById('game-canvas');
@@ -509,19 +699,34 @@
         const controlsInfo = document.getElementById('controls-info');
         const mobileControls = document.getElementById('mobile-controls');
         const collectButton = document.getElementById('collect-button');
+        
+        // Title screen elements
+        const titleScreen = document.getElementById('title-screen');
+        const playButton = document.getElementById('play-button');
+        const customizationPanel = document.getElementById('customization-panel');
+        const colorOptions = document.querySelectorAll('.color-option');
+        const diverPreview = document.querySelector('.preview-circle');
+        const gameContainer = document.getElementById('game-container');
+        const resumeGameButton = document.getElementById('resume-game-button');
+        const bubblesContainer = document.getElementById('bubbles');
 
         // Initialize game
         function initGame() {
+            // Create bubbles for title screen
+            createBubbles();
+            
             // Check if mobile device
             checkIfMobile();
+            
+            // Setup title screen interaction
+            setupTitleScreen();
+            
+            // Try to load saved game
+            loadGame();
             
             // Set canvas size
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
-            
-            // Initialize diver position
-            gameState.diver.x = canvas.width / 2;
-            gameState.diver.y = 50;
             
             // Generate initial level
             generateLevel();
@@ -537,9 +742,84 @@
             
             // Check for available upgrades
             checkAvailableUpgrades();
+        }
+        
+        function setupTitleScreen() {
+            // Handle color selection
+            colorOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    // Remove selection from all options
+                    colorOptions.forEach(opt => opt.classList.remove('selected'));
+                    
+                    // Add selection to clicked option
+                    option.classList.add('selected');
+                    
+                    // Update diver preview
+                    const color = option.getAttribute('data-color');
+                    diverPreview.style.backgroundColor = color;
+                    
+                    // Update game state
+                    gameState.diver.color = color;
+                });
+            });
             
-            // Start game loop
-            requestAnimationFrame(gameLoop);
+            // Handle play button
+            playButton.addEventListener('click', startGame);
+            
+            // Resume game button
+            resumeGameButton.addEventListener('click', () => {
+                titleScreen.style.display = 'none';
+                gameContainer.style.display = 'block';
+                gameState.paused = false;
+                
+                // Hide resume button after use
+                resumeGameButton.style.display = 'none';
+            });
+        }
+        
+        function createBubbles() {
+            // Create bubbles for the animation
+            for (let i = 0; i < 20; i++) {
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                
+                // Random size between 10px and 50px
+                const size = 10 + Math.random() * 40;
+                bubble.style.width = `${size}px`;
+                bubble.style.height = `${size}px`;
+                
+                // Random horizontal position
+                bubble.style.left = `${Math.random() * 100}%`;
+                
+                // Random delay and duration
+                const delay = Math.random() * 15;
+                const duration = 7 + Math.random() * 10;
+                bubble.style.animation = `float ${duration}s linear ${delay}s infinite`;
+                
+                // Add to container
+                bubblesContainer.appendChild(bubble);
+            }
+        }
+        
+        function startGame() {
+            // Hide title screen and show game
+            titleScreen.style.display = 'none';
+            gameContainer.style.display = 'block';
+            
+            // Initialize diver position
+            gameState.diver.x = canvas.width / 2;
+            gameState.diver.y = 50;
+            
+            // Set game as started
+            gameState.gameStarted = true;
+            
+            // Start game loop if not already running
+            if (!gameState.lastTimestamp) {
+                requestAnimationFrame(gameLoop);
+            }
+            
+            // Periodically save game
+            setInterval(saveGame, 30000); // Save every 30 seconds
         }
 
         function checkIfMobile() {
@@ -592,9 +872,28 @@
                         y,
                         width: resourceType.size,
                         height: resourceType.size,
-                        collected: false
+                        collected: false,
+                        id: `resource_${resourceTypeKey}_${i}_${Date.now()}`
                     });
                 }
+            }
+            
+            // Generate oxygen tanks
+            const oxygenCount = 30;
+            for (let i = 0; i < oxygenCount; i++) {
+                // Place oxygen tanks at various depths
+                const x = Math.random() * gameState.gameWidth;
+                const y = 100 + Math.random() * 2000; // Distribute oxygen up to 2000m
+                
+                gameState.levelObjects.push({
+                    type: 'oxygen',
+                    x,
+                    y,
+                    width: oxygenTank.size,
+                    height: oxygenTank.size,
+                    collected: false,
+                    id: `oxygen_${i}_${Date.now()}`
+                });
             }
             
             // Add some decorative elements (rocks, plants, etc)
@@ -632,6 +931,22 @@
             // Mobile controls
             if (gameState.isMobile) {
                 setupMobileControls();
+            }
+            
+            // ESC key to show title screen
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && gameState.gameStarted) {
+                    showTitleScreen();
+                }
+            });
+        }
+        
+        function showTitleScreen() {
+            if (!gameState.shopOpen) {
+                titleScreen.style.display = 'flex';
+                gameContainer.style.display = 'none';
+                gameState.paused = true;
+                resumeGameButton.style.display = 'block';
             }
         }
         
@@ -692,7 +1007,7 @@
                     gameState.keys.space = isPressed;
                     break;
                 case 'Escape':
-                    if (isPressed) toggleShop();
+                    // Handled separately to avoid conflicts
                     break;
             }
         }
@@ -832,6 +1147,9 @@
             
             // Refill oxygen when buying upgrades (quality of life)
             gameState.diver.oxygenLevel = gameState.diver.oxygenCapacity;
+            
+            // Save game after purchase
+            saveGame();
         }
 
         function showMessage(text, duration = 3000) {
@@ -915,11 +1233,29 @@
                 minimapCtx.fillRect(x, y, width, height);
             }
             
+            // Draw resources on the minimap (small dots)
+            gameState.levelObjects.forEach(obj => {
+                if ((obj.type === 'resource' || obj.type === 'oxygen') && !obj.collected) {
+                    const x = obj.x * scaleX;
+                    const y = obj.y * scaleY;
+                    
+                    if (obj.type === 'resource') {
+                        minimapCtx.fillStyle = resourceTypes[obj.resourceType].color;
+                    } else {
+                        minimapCtx.fillStyle = oxygenTank.color;
+                    }
+                    
+                    minimapCtx.beginPath();
+                    minimapCtx.arc(x, y, 1.5, 0, Math.PI * 2);
+                    minimapCtx.fill();
+                }
+            });
+            
             // Draw diver position
             const diverX = gameState.diver.x * scaleX;
             const diverY = gameState.diver.y * scaleY;
             
-            minimapCtx.fillStyle = '#ffcc00';
+            minimapCtx.fillStyle = gameState.diver.color;
             minimapCtx.beginPath();
             minimapCtx.arc(diverX, diverY, 3, 0, Math.PI * 2);
             minimapCtx.fill();
@@ -933,6 +1269,127 @@
             minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
             minimapCtx.lineWidth = 1;
             minimapCtx.strokeRect(viewX, viewY, viewWidth, viewHeight);
+        }
+        
+        // Respawn functions
+        function scheduleRespawn(obj) {
+            if (obj.type === 'resource') {
+                const resourceType = resourceTypes[obj.resourceType];
+                const respawnTime = resourceType.respawnTime;
+                
+                // Schedule respawn
+                gameState.respawnTimers.resources[obj.id] = setTimeout(() => {
+                    // Find object and mark as uncollected
+                    const objIndex = gameState.levelObjects.findIndex(item => item.id === obj.id);
+                    if (objIndex !== -1) {
+                        gameState.levelObjects[objIndex].collected = false;
+                    }
+                }, respawnTime);
+            }
+            else if (obj.type === 'oxygen') {
+                // Schedule respawn
+                gameState.respawnTimers.oxygen[obj.id] = setTimeout(() => {
+                    // Find object and mark as uncollected
+                    const objIndex = gameState.levelObjects.findIndex(item => item.id === obj.id);
+                    if (objIndex !== -1) {
+                        gameState.levelObjects[objIndex].collected = false;
+                    }
+                }, oxygenTank.respawnTime);
+            }
+        }
+        
+        // Local Storage Functions
+        function saveGame() {
+            if (!gameState.gameStarted) return;
+            
+            const saveData = {
+                diver: {
+                    oxygenCapacity: gameState.diver.oxygenCapacity,
+                    oxygenDepletionRate: gameState.diver.oxygenDepletionRate,
+                    speed: gameState.diver.speed,
+                    collectRange: gameState.diver.collectRange,
+                    color: gameState.diver.color
+                },
+                resources: gameState.resources,
+                reachedMaxDepth: gameState.reachedMaxDepth,
+                purchasedUpgrades: purchasedUpgrades,
+                exploredMap: gameState.exploredMap
+            };
+            
+            try {
+                localStorage.setItem('deepDiveSave', JSON.stringify(saveData));
+                console.log('Game saved successfully');
+            } catch (error) {
+                console.error('Failed to save game:', error);
+            }
+        }
+        
+        function loadGame() {
+            try {
+                const saveData = localStorage.getItem('deepDiveSave');
+                
+                if (saveData) {
+                    const parsedData = JSON.parse(saveData);
+                    
+                    // Load diver stats
+                    gameState.diver.oxygenCapacity = parsedData.diver.oxygenCapacity || 100;
+                    gameState.diver.oxygenDepletionRate = parsedData.diver.oxygenDepletionRate || 0.2;
+                    gameState.diver.speed = parsedData.diver.speed || 3;
+                    gameState.diver.collectRange = parsedData.diver.collectRange || 40;
+                    
+                    if (parsedData.diver.color) {
+                        gameState.diver.color = parsedData.diver.color;
+                        
+                        // Update color selection in the UI
+                        colorOptions.forEach(option => {
+                            if (option.getAttribute('data-color') === parsedData.diver.color) {
+                                colorOptions.forEach(opt => opt.classList.remove('selected'));
+                                option.classList.add('selected');
+                                diverPreview.style.backgroundColor = parsedData.diver.color;
+                            }
+                        });
+                    }
+                    
+                    // Load resources
+                    if (parsedData.resources) {
+                        gameState.resources = parsedData.resources;
+                    }
+                    
+                    // Load max depth
+                    if (parsedData.reachedMaxDepth) {
+                        gameState.reachedMaxDepth = parsedData.reachedMaxDepth;
+                    }
+                    
+                    // Load purchased upgrades
+                    if (parsedData.purchasedUpgrades) {
+                        purchasedUpgrades = parsedData.purchasedUpgrades;
+                    }
+                    
+                    // Load explored map
+                    if (parsedData.exploredMap) {
+                        gameState.exploredMap = parsedData.exploredMap;
+                    }
+                    
+                    // Show resume button
+                    resumeGameButton.style.display = 'block';
+                    
+                    console.log('Game loaded successfully');
+                    
+                    // Set game as started to enable saving
+                    gameState.gameStarted = true;
+                    
+                    return true;
+                }
+            } catch (error) {
+                console.error('Failed to load game:', error);
+            }
+            
+            return false;
+        }
+        
+        function resetGame() {
+            localStorage.removeItem('deepDiveSave');
+            location.reload();
         }
 
         function gameLoop(timestamp) {
@@ -1037,7 +1494,7 @@
 
         function collectResources() {
             gameState.levelObjects.forEach(obj => {
-                if (obj.type === 'resource' && !obj.collected) {
+                if ((obj.type === 'resource' || obj.type === 'oxygen') && !obj.collected) {
                     // Check if diver is in range of the resource
                     const dx = obj.x - gameState.diver.x;
                     const dy = obj.y - gameState.diver.y;
@@ -1046,11 +1503,27 @@
                     if (distance <= gameState.diver.collectRange) {
                         // Collect the resource
                         obj.collected = true;
-                        gameState.resources[obj.resourceType]++;
                         
-                        // Show collection message
-                        const resourceName = resourceTypes[obj.resourceType].name;
-                        showMessage(`Collected: ${resourceName}`);
+                        // Schedule respawn
+                        scheduleRespawn(obj);
+                        
+                        if (obj.type === 'resource') {
+                            // Add to player's resources
+                            gameState.resources[obj.resourceType]++;
+                            
+                            // Show collection message
+                            const resourceName = resourceTypes[obj.resourceType].name;
+                            showMessage(`Collected: ${resourceName}`);
+                        } else if (obj.type === 'oxygen') {
+                            // Replenish oxygen
+                            gameState.diver.oxygenLevel += oxygenTank.value;
+                            if (gameState.diver.oxygenLevel > gameState.diver.oxygenCapacity) {
+                                gameState.diver.oxygenLevel = gameState.diver.oxygenCapacity;
+                            }
+                            
+                            // Show collection message
+                            showMessage(`Collected: Oxygen +${oxygenTank.value}`);
+                        }
                         
                         // Check if new upgrades are available after collection
                         checkAvailableUpgrades();
@@ -1147,7 +1620,7 @@
                 if (isOutOfView(obj)) return;
                 
                 // Skip if already collected
-                if (obj.type === 'resource' && obj.collected) return;
+                if ((obj.type === 'resource' || obj.type === 'oxygen') && obj.collected) return;
                 
                 // Calculate screen position
                 const screenX = obj.x - gameState.camera.x;
@@ -1174,6 +1647,28 @@
                     ctx.beginPath();
                     ctx.arc(screenX, screenY, (resourceType.size / 2) + pulseSize, 0, Math.PI * 2);
                     ctx.stroke();
+                } else if (obj.type === 'oxygen') {
+                    // Render oxygen tank
+                    ctx.fillStyle = oxygenTank.color;
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, oxygenTank.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Add oxygen symbol
+                    ctx.fillStyle = 'white';
+                    ctx.font = '10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('O₂', screenX, screenY);
+                    
+                    // Add glow effect
+                    const pulseSize = Math.sin(Date.now() / 300) * 3;
+                    ctx.strokeStyle = 'rgba(0, 170, 255, 0.8)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, (oxygenTank.size / 2) + pulseSize, 0, Math.PI * 2);
+                    ctx.stroke();
+                    
                 } else if (obj.type === 'decor') {
                     // Render decorative element
                     ctx.fillStyle = obj.color;
@@ -1194,7 +1689,7 @@
             const screenY = gameState.diver.y - gameState.camera.y;
             
             // Draw diver body
-            ctx.fillStyle = '#ff9900';
+            ctx.fillStyle = gameState.diver.color;
             ctx.beginPath();
             ctx.arc(screenX, screenY, gameState.diver.width / 2, 0, Math.PI * 2);
             ctx.fill();
@@ -1204,8 +1699,8 @@
                 screenX, screenY, gameState.diver.width / 2,
                 screenX, screenY, gameState.diver.width
             );
-            gradient.addColorStop(0, 'rgba(255, 153, 0, 0.3)');
-            gradient.addColorStop(1, 'rgba(255, 153, 0, 0)');
+            gradient.addColorStop(0, `rgba(${hexToRgb(gameState.diver.color)}, 0.3)`);
+            gradient.addColorStop(1, `rgba(${hexToRgb(gameState.diver.color)}, 0)`);
             
             ctx.fillStyle = gradient;
             ctx.beginPath();
@@ -1295,6 +1790,19 @@
             // Add pressure/depth effect with blue tint
             ctx.fillStyle = `rgba(0, 20, 40, ${depthFactor * 0.3})`;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        // Utility function to convert hex to rgb for glow effect
+        function hexToRgb(hex) {
+            // Remove # if present
+            hex = hex.replace('#', '');
+            
+            // Parse the components
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            
+            return `${r}, ${g}, ${b}`;
         }
 
         // Start the game when loaded
