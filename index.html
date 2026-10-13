@@ -1,1812 +1,958 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deep Dive Explorer</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700&display=swap');
-        
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Exo 2', 'Arial', sans-serif;
-            background-color: #04142d;
-            color: white;
-            overflow: hidden;
-            touch-action: none;
-        }
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            display: none; /* Hidden initially, shown after title screen */
-        }
-        #game-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            touch-action: none;
-        }
-        #ui-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            padding: 15px;
-            box-sizing: border-box;
-            z-index: 10;
-            display: flex;
-            justify-content: space-between;
-            pointer-events: none;
-        }
-        .ui-panel {
-            background-color: rgba(0, 20, 40, 0.7);
-            border-radius: 10px;
-            padding: 12px;
-            margin: 5px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(4px);
-            border: 1px solid rgba(0, 150, 220, 0.3);
-        }
-        #resources-panel {
-            flex: 1;
-            max-width: 180px;
-        }
-        #depth-panel {
-            flex: 1;
-            text-align: center;
-            max-width: 180px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        #depth-display, #max-depth-display {
-            font-weight: bold;
-            color: #29b6f6;
-        }
-        #oxygen-panel {
-            display: flex;
-            align-items: center;
-            flex: 1;
-            max-width: 200px;
-        }
-        #oxygen-bar {
-            width: 100%;
-            height: 20px;
-            background-color: rgba(0, 0, 0, 0.5);
-            border-radius: 10px;
-            overflow: hidden;
-            margin-left: 10px;
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
-        }
-        #oxygen-level {
-            height: 100%;
-            background-color: #00aaff;
-            width: 100%;
-            transition: width 0.3s;
-            box-shadow: 0 0 8px rgba(0, 170, 255, 0.7);
-        }
-        #minimap-container {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 150px;
-            height: 150px;
-            background-color: rgba(0, 20, 40, 0.7);
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(0, 150, 220, 0.3);
-            z-index: 15;
-            padding: 5px;
-            backdrop-filter: blur(4px);
-            overflow: hidden;
-        }
-        #minimap-canvas {
-            width: 100%;
-            height: 100%;
-            border-radius: 5px;
-        }
-        #shop-container {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(3, 37, 65, 0.95);
-            border: 2px solid #00aaff;
-            border-radius: 15px;
-            padding: 25px;
-            z-index: 20;
-            min-width: 350px;
-            max-width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-            display: none;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
-        }
-        .shop-category {
-            margin-bottom: 20px;
-        }
-        .shop-category-title {
-            font-size: 1.2em;
-            margin-bottom: 10px;
-            color: #29b6f6;
-            border-bottom: 1px solid rgba(41, 182, 246, 0.3);
-            padding-bottom: 5px;
-        }
-        .shop-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 10px 0;
-            padding: 15px;
-            background-color: rgba(0, 100, 150, 0.2);
-            border-radius: 8px;
-            border: 1px solid rgba(0, 150, 220, 0.2);
-            transition: all 0.2s ease;
-        }
-        .shop-item:hover {
-            background-color: rgba(0, 120, 180, 0.3);
-            transform: translateY(-2px);
-        }
-        .shop-item-info {
-            flex: 1;
-        }
-        .shop-item-name {
-            font-weight: bold;
-            color: #fff;
-            margin-bottom: 5px;
-        }
-        .shop-item-desc {
-            font-size: 0.9em;
-            opacity: 0.8;
-        }
-        .shop-item-cost {
-            font-size: 0.9em;
-            margin-top: 5px;
-            color: #ffcc80;
-        }
-        button {
-            background-color: #0288d1;
-            color: white;
-            border: none;
-            padding: 10px 18px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-            pointer-events: auto;
-        }
-        button:hover {
-            background-color: #0277bd;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-        }
-        button:active {
-            transform: translateY(1px);
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-        }
-        button:disabled {
-            background-color: #455a64;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        #shop-button {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            z-index: 15;
-            display: flex;
-            align-items: center;
-            border-radius: 30px;
-            padding: 10px 15px;
-        }
-        #shop-alert {
-            width: 12px;
-            height: 12px;
-            background-color: #ff5252;
-            border-radius: 50%;
-            margin-left: 8px;
-            display: none;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(0.95); opacity: 0.7; }
-            50% { transform: scale(1.1); opacity: 1; }
-            100% { transform: scale(0.95); opacity: 0.7; }
-        }
-        #close-shop {
-            background-color: #455a64;
-            margin-top: 15px;
-        }
-        #message-box {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 20, 40, 0.8);
-            padding: 15px 25px;
-            border-radius: 30px;
-            z-index: 15;
-            text-align: center;
-            display: none;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(0, 150, 220, 0.2);
-            backdrop-filter: blur(4px);
-            animation: fadeIn 0.3s ease;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translate(-50%, 20px); }
-            to { opacity: 1; transform: translate(-50%, 0); }
-        }
-        .resource {
-            display: flex;
-            align-items: center;
-            margin: 5px 0;
-        }
-        .resource-icon {
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-        #controls-info {
-            position: absolute;
-            bottom: 15px;
-            left: 15px;
-            background-color: rgba(0, 20, 40, 0.7);
-            padding: 8px 15px;
-            border-radius: 30px;
-            font-size: 0.8em;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(4px);
-            border: 1px solid rgba(0, 150, 220, 0.2);
-            animation: fadeIn 1s ease;
-        }
-        #mobile-controls {
-            position: absolute;
-            bottom: 50px;
-            left: 0;
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 20px;
-            box-sizing: border-box;
-            z-index: 15;
-            pointer-events: none;
-        }
-        .mobile-button {
-            width: 60px;
-            height: 60px;
-            background-color: rgba(0, 120, 180, 0.5);
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 24px;
-            color: white;
-            user-select: none;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            pointer-events: auto;
-        }
-        #collect-button {
-            position: absolute;
-            bottom: 50px;
-            right: 20px;
-            width: 70px;
-            height: 70px;
-            background-color: rgba(255, 100, 100, 0.5);
-            border: 2px solid rgba(255, 255, 255, 0.5);
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 16px;
-            color: white;
-            z-index: 15;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            pointer-events: auto;
-        }
-        
-        /* Title Screen Styles */
-        #title-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(to bottom, #0a2342, #04142d);
-            z-index: 30;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-        }
-        #title-container {
-            text-align: center;
-            padding: 20px;
-            max-width: 800px;
-            position: relative;
-            z-index: 2;
-        }
-        #game-title {
-            font-size: 4rem;
-            margin-bottom: 20px;
-            color: #fff;
-            text-shadow: 0 0 15px rgba(0, 150, 255, 0.8);
-            animation: glow 3s infinite alternate;
-        }
-        @keyframes glow {
-            from { text-shadow: 0 0 10px rgba(0, 150, 255, 0.8); }
-            to { text-shadow: 0 0 20px rgba(0, 200, 255, 1); }
-        }
-        #title-subtitle {
-            font-size: 1.5rem;
-            margin-bottom: 40px;
-            color: #29b6f6;
-        }
-        #play-button {
-            font-size: 1.4rem;
-            padding: 15px 40px;
-            background-color: #0288d1;
-            margin-top: 20px;
-            border-radius: 30px;
-        }
-        #bubbles {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1;
-        }
-        .bubble {
-            position: absolute;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
-            animation: float linear infinite;
-            bottom: -50px;
-        }
-        @keyframes float {
-            0% { transform: translateY(0) rotate(0); }
-            100% { transform: translateY(-100vh) rotate(360deg); }
-        }
-        
-        /* Customization Panel */
-        #customization-panel {
-            background-color: rgba(0, 20, 40, 0.8);
-            border-radius: 15px;
-            padding: 25px;
-            margin-top: 20px;
-            max-width: 400px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(0, 150, 255, 0.3);
-        }
-        #customization-title {
-            font-size: 1.2rem;
-            color: #29b6f6;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        .color-option {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin: 5px;
-            cursor: pointer;
-            border: 3px solid transparent;
-            transition: all 0.2s ease;
-        }
-        .color-option.selected {
-            border-color: white;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
-        }
-        .option-row {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 15px;
-        }
-        #diver-preview {
-            width: 100px;
-            height: 100px;
-            margin: 15px auto;
-            position: relative;
-        }
-        .preview-circle {
-            position: absolute;
-            border-radius: 50%;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-        }
-        #resume-game-button {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            z-index: 31;
-            padding: 10px 15px;
-            font-size: 1rem;
-            display: none;
-        }
-        
-        @media (max-width: 768px) {
-            #ui-container {
-                flex-direction: column;
-                align-items: flex-start;
-                padding: 10px;
-            }
-            .ui-panel {
-                margin: 3px;
-                padding: 8px;
-                max-width: none !important;
-                width: 100%;
-            }
-            #controls-info {
-                font-size: 0.7em;
-            }
-            #shop-container {
-                max-width: 95%;
-                padding: 15px;
-            }
-            #minimap-container {
-                width: 100px;
-                height: 100px;
-                bottom: 15px;
-                right: 15px;
-            }
-            .mobile-button {
-                width: 50px;
-                height: 50px;
-                font-size: 20px;
-            }
-            #collect-button {
-                width: 60px;
-                height: 60px;
-                font-size: 14px;
-            }
-            #game-title {
-                font-size: 2.5rem;
-            }
-            #title-subtitle {
-                font-size: 1.2rem;
-            }
-            #customization-panel {
-                max-width: 90%;
-                padding: 15px;
-            }
-            .color-option {
-                width: 30px;
-                height: 30px;
-                margin: 3px;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Deep Dive Explorer</title>
+<meta name="description" content="Deep Dive Explorer - dive, loot, upgrade, survive the dark. Find the Abyssal Relic at 5000m.">
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#02101f;color:#e8f6ff;font-family:'Exo 2',Arial,sans-serif;
+    user-select:none;-webkit-user-select:none;touch-action:none;-webkit-tap-highlight-color:transparent;}
+  #c{position:fixed;inset:0;width:100vw;height:100vh;display:block;}
+  .hidden{display:none !important;}
+  button{font-family:inherit;font-weight:800;color:#fff;background:#0288d1;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;
+    box-shadow:0 3px 0 #01579b;transition:transform .1s, background .15s;}
+  button:hover:not(:disabled){background:#039be5;}
+  button:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 #01579b;}
+  button:disabled{background:#37474f;box-shadow:none;cursor:not-allowed;opacity:.7;}
+  button.ghost{background:#263845;box-shadow:0 3px 0 #13202a;}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:5;}
+  .card{background:rgba(0,18,36,.72);border:1px solid rgba(0,170,255,.35);border-radius:10px;padding:8px 12px;backdrop-filter:blur(3px);}
+  #hudL{position:absolute;top:10px;left:10px;width:min(240px,46vw);}
+  .o2wrap{height:16px;background:rgba(0,0,0,.55);border-radius:8px;overflow:hidden;margin-top:4px;}
+  #o2bar{height:100%;width:100%;background:#00aaff;box-shadow:0 0 8px #00aaff;transition:width .1s;}
+  .lbl{font-size:12px;font-weight:600;opacity:.85;display:flex;justify-content:space-between;}
+  #bagline{margin-top:6px;font-size:12px;font-weight:600;}
+  #hudC{position:absolute;top:10px;left:50%;transform:translateX(-50%);text-align:center;min-width:150px;}
+  #depth{font-size:26px;font-weight:800;line-height:1.1;}
+  #rating{font-size:11px;font-weight:600;opacity:.85;}
+  #rating.bad{color:#ff5252;opacity:1;animation:blink .5s steps(1) infinite;}
+  @keyframes blink{50%{opacity:.3}}
+  #hudR{position:absolute;top:10px;right:10px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:auto;}
+  #hudR .row{display:flex;gap:6px;}
+  #shopBtn.ready{background:#2e7d32;box-shadow:0 3px 0 #1b5e20;}
+  #mmWrap{position:absolute;right:10px;bottom:10px;padding:5px;}
+  #mm{display:block;width:84px;height:210px;border-radius:5px;}
+  #toast{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);font-weight:800;font-size:15px;padding:9px 18px;border-radius:20px;
+    background:rgba(0,18,36,.85);border:1px solid rgba(0,170,255,.4);opacity:0;transition:opacity .2s;white-space:nowrap;}
+  #toast.on{opacity:1;}
+  #boostBtn{position:absolute;right:110px;bottom:24px;width:70px;height:70px;border-radius:50%;pointer-events:auto;font-size:12px;background:rgba(2,136,209,.55);}
+  #joy{position:fixed;width:120px;height:120px;border-radius:50%;border:3px solid rgba(255,255,255,.35);background:rgba(255,255,255,.07);
+    transform:translate(-50%,-50%);display:none;pointer-events:none;z-index:6;}
+  #knob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(255,255,255,.4);}
+
+  /* ---------- screens ---------- */
+  .screen{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(1,8,18,.55);padding:14px;overflow:auto;}
+  .panel{width:min(560px,100%);max-height:100%;overflow:auto;text-align:center;padding:24px 20px;background:rgba(3,30,55,.95);
+    border:2px solid #00aaff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.6);}
+  h1{font-size:clamp(36px,8vw,64px);font-weight:800;letter-spacing:2px;text-shadow:0 0 18px rgba(0,180,255,.9);line-height:1;}
+  h2{font-size:clamp(22px,5vw,32px);font-weight:800;color:#4fc3f7;margin-bottom:12px;}
+  .sub{color:#4fc3f7;font-weight:600;margin:10px 0 18px;}
+  .colors{display:flex;justify-content:center;gap:10px;margin:8px 0 16px;}
+  .sw{width:36px;height:36px;border-radius:50%;cursor:pointer;border:3px solid transparent;}
+  .sw.sel{border-color:#fff;box-shadow:0 0 10px #fff;}
+  .btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:6px;}
+  .big{font-size:20px;padding:14px 30px;border-radius:30px;}
+  .small{font-size:12px;opacity:.75;line-height:1.7;margin-top:14px;}
+  .note{font-size:12px;color:#69f0ae;margin-top:12px;font-weight:600;}
+  .back{display:inline-block;margin-top:14px;color:#4fc3f7;font-weight:600;font-size:14px;text-decoration:none;}
+  .stats{font-size:16px;line-height:1.9;margin:6px 0 16px;}
+  .stats b{color:#ffd54f;}
+  .bad{color:#ff8a80;}
+  /* shop */
+  #shopPanel{width:min(640px,100%);text-align:left;}
+  #shopPanel h2{text-align:center;}
+  .bank{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;font-size:13px;font-weight:600;margin-bottom:12px;}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px;}
+  .item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;margin:8px 0;border-radius:10px;
+    background:rgba(0,100,150,.18);border:1px solid rgba(0,170,255,.2);}
+  .item .n{font-weight:800;}
+  .item .d{font-size:13px;opacity:.85;margin-top:2px;}
+  .item .lv{font-size:12px;color:#69f0ae;margin-top:4px;}
+  .item .cost{font-size:12px;color:#ffcc80;margin-top:4px;}
+  .item .cost .no{color:#ff8a80;}
+  .item button{white-space:nowrap;}
+</style>
 </head>
 <body>
-    <div id="title-screen">
-        <div id="bubbles"></div>
-        
-        <div id="title-container">
-            <h1 id="game-title">DEEP DIVE</h1>
-            <h2 id="title-subtitle">Explore the depths of the ocean</h2>
-            
-            <div id="customization-panel">
-                <div id="customization-title">Customize Your Diver</div>
-                
-                <div class="option-row">
-                    <div class="color-option selected" style="background-color: #ff9900;" data-color="#ff9900"></div>
-                    <div class="color-option" style="background-color: #ff5252;" data-color="#ff5252"></div>
-                    <div class="color-option" style="background-color: #4caf50;" data-color="#4caf50"></div>
-                    <div class="color-option" style="background-color: #9c27b0;" data-color="#9c27b0"></div>
-                    <div class="color-option" style="background-color: #ffeb3b;" data-color="#ffeb3b"></div>
-                </div>
-                
-                <div id="diver-preview">
-                    <div class="preview-circle" style="width: 80px; height: 80px; background-color: #ff9900;"></div>
-                    <div class="preview-circle" style="width: 30px; height: 15px; background-color: #333; top: 40%; border-radius: 15px 15px 0 0;"></div>
-                    <div class="preview-circle" style="width: 15px; height: 30px; background-color: #555; top: 30%; left: 60%;"></div>
-                </div>
-            </div>
-            
-            <button id="play-button">DIVE IN</button>
-        </div>
+<canvas id="c"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="hudL" class="card">
+    <div class="lbl"><span>O&#8322;</span><span id="o2txt">30s</span></div>
+    <div class="o2wrap"><div id="o2bar"></div></div>
+    <div id="bagline">BAG 0/20</div>
+  </div>
+  <div id="hudC" class="card">
+    <div id="depth">0m</div>
+    <div id="rating">SUIT SAFE TO 500m</div>
+  </div>
+  <div id="hudR">
+    <div class="row">
+      <button id="shopBtn" class="ghost">SHOP</button>
+      <button id="pauseBtn" class="ghost">II</button>
     </div>
-    
-    <button id="resume-game-button">Resume Game</button>
-    
-    <div id="game-container">
-        <canvas id="game-canvas"></canvas>
-        
-        <div id="ui-container">
-            <div id="resources-panel" class="ui-panel">
-                <div style="margin-bottom: 5px; font-weight: bold;">Resources:</div>
-                <div id="resources-display"></div>
-            </div>
-            <div id="depth-panel" class="ui-panel">
-                <div>Depth: <span id="depth-display">0</span>m</div>
-                <div>Max Depth: <span id="max-depth-display">0</span>m</div>
-            </div>
-            <div id="oxygen-panel" class="ui-panel">
-                <div>O₂:</div>
-                <div id="oxygen-bar">
-                    <div id="oxygen-level"></div>
-                </div>
-            </div>
-        </div>
-        
-        <button id="shop-button">Shop <div id="shop-alert"></div></button>
-        
-        <div id="minimap-container">
-            <canvas id="minimap-canvas"></canvas>
-        </div>
-        
-        <div id="shop-container">
-            <h2 style="text-align: center; color: #29b6f6; margin-top: 0;">Diving Shop</h2>
-            <div id="shop-items"></div>
-            <button id="close-shop">Close</button>
-        </div>
-        
-        <div id="message-box"></div>
-        
-        <div id="controls-info">
-            Controls: Arrow keys to move | Space to collect resources
-        </div>
-        
-        <div id="mobile-controls" style="display: none;">
-            <div class="mobile-button" id="left-button">←</div>
-            <div style="display: flex; flex-direction: column; align-items: center;">
-                <div class="mobile-button" id="up-button">↑</div>
-                <div class="mobile-button" id="down-button" style="margin-top: 10px;">↓</div>
-            </div>
-            <div class="mobile-button" id="right-button">→</div>
-        </div>
-        
-        <div id="collect-button" style="display: none;">
-            COLLECT
-        </div>
+  </div>
+  <div id="mmWrap" class="card"><canvas id="mm" width="84" height="210"></canvas></div>
+  <div id="toast"></div>
+  <button id="boostBtn" class="hidden">BOOST</button>
+</div>
+<div id="joy"><div id="knob"></div></div>
+
+<div id="title" class="screen">
+  <div class="panel">
+    <h1>DEEP DIVE</h1>
+    <div class="sub">Somewhere below 5000m sits the Abyssal Relic.<br>Everything between you and it wants your air.</div>
+    <div class="colors" id="colors"></div>
+    <div class="btns">
+      <button class="big" id="contBtn">CONTINUE</button>
+      <button class="big" id="newBtn">NEW DIVE</button>
     </div>
+    <div class="note hidden" id="migrated">Old save found: your loot and upgrades carried over.</div>
+    <div class="small">ARROWS / WASD swim &middot; SHIFT boost (burns air) &middot; loot grabs itself<br>
+      Surface to bank your bag + shop &middot; B shop &middot; P pause &middot; M mute</div>
+    <a class="back" href="../">&lt; Back to arcade</a>
+  </div>
+</div>
 
-    <script>
-        // Game State
-        const gameState = {
-            diver: {
-                x: 0,
-                y: 0,
-                width: 30,
-                height: 50,
-                speed: 3,
-                oxygenCapacity: 100,
-                oxygenLevel: 100,
-                oxygenDepletionRate: 0.2,
-                oxygenReplenishRate: 0.1, // Half the depletion rate
-                collectRange: 40,
-                color: "#ff9900" // Default color
-            },
-            resources: {
-                seaweed: 0,
-                coral: 0,
-                pearl: 0,
-                crystal: 0,
-                treasure: 0
-            },
-            currentDepth: 0,
-            reachedMaxDepth: 0,
-            previousDepth: 0,
-            camera: {
-                x: 0,
-                y: 0
-            },
-            levelObjects: [],
-            keys: {
-                up: false,
-                down: false,
-                left: false,
-                right: false,
-                space: false
-            },
-            respawnTimers: {
-                resources: {},
-                oxygen: {}
-            },
-            shopOpen: false,
-            gameWidth: 2000,
-            gameHeight: 5000,
-            backgroundColor: '#04142d',
-            lastTimestamp: 0,
-            deltaTime: 0,
-            paused: false,
-            isMobile: false,
-            exploredMap: {},
-            hasAvailableUpgrades: false,
-            gameStarted: false
-        };
+<div id="pause" class="screen hidden">
+  <div class="panel">
+    <h2>PAUSED</h2>
+    <div class="btns"><button class="big" id="resumeBtn">RESUME</button></div>
+    <div class="btns" style="margin-top:12px"><button class="ghost" id="muteBtn">SOUND ON</button><button class="ghost" id="quitBtn">TITLE SCREEN</button></div>
+  </div>
+</div>
 
-        // Resource Definitions
-        const resourceTypes = {
-            seaweed: { name: "Seaweed", minDepth: 0, maxDepth: 300, value: 1, color: "#3cb371", size: 20, respawnTime: 60000 },
-            coral: { name: "Coral", minDepth: 50, maxDepth: 500, value: 3, color: "#ff7f50", size: 25, respawnTime: 90000 },
-            pearl: { name: "Pearl", minDepth: 150, maxDepth: 800, value: 7, color: "#f0f8ff", size: 15, respawnTime: 120000 },
-            crystal: { name: "Crystal", minDepth: 400, maxDepth: 1500, value: 15, color: "#9370db", size: 20, respawnTime: 180000 },
-            treasure: { name: "Treasure", minDepth: 800, maxDepth: 3000, value: 50, color: "#ffd700", size: 30, respawnTime: 300000 }
-        };
+<div id="shop" class="screen hidden">
+  <div class="panel" id="shopPanel">
+    <h2>DIVE SHOP</h2>
+    <div class="bank" id="bankLine"></div>
+    <div id="shopList"></div>
+    <div class="btns" style="margin-top:12px"><button id="closeShop">BACK TO DIVING</button></div>
+  </div>
+</div>
 
-        // Oxygen tank definition for collectibles
-        const oxygenTank = {
-            name: "Oxygen",
-            color: "#00aaff",
-            size: 15,
-            value: 25, // Amount of oxygen to replenish
-            respawnTime: 30000 // 30 seconds
-        };
+<div id="blackout" class="screen hidden">
+  <div class="panel">
+    <h2 class="bad">YOU BLACKED OUT</h2>
+    <div class="stats" id="boStats"></div>
+    <div class="btns"><button class="big" id="boBtn">WAKE UP</button></div>
+  </div>
+</div>
 
-        // Upgrade Definitions - Organized by categories
-        const upgrades = [
-            // Oxygen category
-            { id: "oxygen1", category: "oxygen", name: "Oxygen Tank I", description: "Increase oxygen capacity by 50", cost: { seaweed: 10 }, effect: () => { gameState.diver.oxygenCapacity += 50; } },
-            { id: "oxygen2", category: "oxygen", name: "Oxygen Tank II", description: "Increase oxygen capacity by 100", cost: { seaweed: 20, coral: 5 }, effect: () => { gameState.diver.oxygenCapacity += 100; }, requires: ["oxygen1"] },
-            { id: "oxygen3", category: "oxygen", name: "Oxygen Tank III", description: "Increase oxygen capacity by 200", cost: { coral: 15, pearl: 5 }, effect: () => { gameState.diver.oxygenCapacity += 200; }, requires: ["oxygen2"] },
-            { id: "efficiency1", category: "oxygen", name: "Breathing Regulator", description: "Reduce oxygen consumption by 20%", cost: { coral: 12, pearl: 4 }, effect: () => { gameState.diver.oxygenDepletionRate *= 0.8; } },
-            { id: "efficiency2", category: "oxygen", name: "Advanced Regulator", description: "Reduce oxygen consumption by another 20%", cost: { crystal: 6, treasure: 1 }, effect: () => { gameState.diver.oxygenDepletionRate *= 0.8; }, requires: ["efficiency1"] },
-            
-            // Movement category
-            { id: "speed1", category: "movement", name: "Fins I", description: "Increase swimming speed", cost: { seaweed: 15 }, effect: () => { gameState.diver.speed += 1; } },
-            { id: "speed2", category: "movement", name: "Fins II", description: "Further increase swimming speed", cost: { coral: 10, pearl: 3 }, effect: () => { gameState.diver.speed += 1.5; }, requires: ["speed1"] },
-            { id: "speed3", category: "movement", name: "Propulsion Aid", description: "Significant speed boost", cost: { pearl: 10, crystal: 2 }, effect: () => { gameState.diver.speed += 2; }, requires: ["speed2"] },
-            
-            // Collection category
-            { id: "collector1", category: "collection", name: "Collection Net", description: "Increase collection range", cost: { seaweed: 20, coral: 5 }, effect: () => { gameState.diver.collectRange += 20; } },
-            { id: "collector2", category: "collection", name: "Magnetic Collector", description: "Further increase collection range", cost: { pearl: 8, crystal: 3 }, effect: () => { gameState.diver.collectRange += 40; }, requires: ["collector1"] }
-        ];
+<div id="win" class="screen hidden">
+  <div class="panel">
+    <h2>THE ABYSSAL RELIC IS YOURS</h2>
+    <div class="stats" id="winStats"></div>
+    <div class="btns"><button class="big" id="winBtn">KEEP EXPLORING</button></div>
+  </div>
+</div>
 
-        // Track purchased upgrades
-        let purchasedUpgrades = [];
+<script>
+(() => {
+'use strict';
 
-        // Canvas setup
-        const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Minimap setup
-        const minimapCanvas = document.getElementById('minimap-canvas');
-        const minimapCtx = minimapCanvas.getContext('2d');
-        
-        // UI elements
-        const resourcesDisplay = document.getElementById('resources-display');
-        const depthDisplay = document.getElementById('depth-display');
-        const maxDepthDisplay = document.getElementById('max-depth-display');
-        const oxygenLevel = document.getElementById('oxygen-level');
-        const shopButton = document.getElementById('shop-button');
-        const shopAlert = document.getElementById('shop-alert');
-        const shopContainer = document.getElementById('shop-container');
-        const shopItems = document.getElementById('shop-items');
-        const closeShopButton = document.getElementById('close-shop');
-        const messageBox = document.getElementById('message-box');
-        const controlsInfo = document.getElementById('controls-info');
-        const mobileControls = document.getElementById('mobile-controls');
-        const collectButton = document.getElementById('collect-button');
-        
-        // Title screen elements
-        const titleScreen = document.getElementById('title-screen');
-        const playButton = document.getElementById('play-button');
-        const customizationPanel = document.getElementById('customization-panel');
-        const colorOptions = document.querySelectorAll('.color-option');
-        const diverPreview = document.querySelector('.preview-circle');
-        const gameContainer = document.getElementById('game-container');
-        const resumeGameButton = document.getElementById('resume-game-button');
-        const bubblesContainer = document.getElementById('bubbles');
+/* =========================================================
+   BASICS
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const cv = $('c'), ctx = cv.getContext('2d');
+const dark = document.createElement('canvas'), dctx = dark.getContext('2d');
+const mm = $('mm'), mctx = mm.getContext('2d');
+const TAU = Math.PI * 2;
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+function setText(el, v) { v = String(v); if (el._v !== v) { el._v = v; el.innerHTML = v; } }
 
-        // Initialize game
-        function initGame() {
-            // Create bubbles for title screen
-            createBubbles();
-            
-            // Check if mobile device
-            checkIfMobile();
-            
-            // Setup title screen interaction
-            setupTitleScreen();
-            
-            // Try to load saved game
-            loadGame();
-            
-            // Set canvas size
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
-            
-            // Generate initial level
-            generateLevel();
-            
-            // Setup event listeners
-            setupEventListeners();
-            
-            // Mark the starting position as explored
-            updateExploredMap(gameState.diver.x, gameState.diver.y);
-            
-            // Initialize minimap
-            updateMinimap();
-            
-            // Check for available upgrades
-            checkAvailableUpgrades();
-        }
-        
-        function setupTitleScreen() {
-            // Handle color selection
-            colorOptions.forEach(option => {
-                option.addEventListener('click', () => {
-                    // Remove selection from all options
-                    colorOptions.forEach(opt => opt.classList.remove('selected'));
-                    
-                    // Add selection to clicked option
-                    option.classList.add('selected');
-                    
-                    // Update diver preview
-                    const color = option.getAttribute('data-color');
-                    diverPreview.style.backgroundColor = color;
-                    
-                    // Update game state
-                    gameState.diver.color = color;
-                });
-            });
-            
-            // Handle play button
-            playButton.addEventListener('click', startGame);
-            
-            // Resume game button
-            resumeGameButton.addEventListener('click', () => {
-                titleScreen.style.display = 'none';
-                gameContainer.style.display = 'block';
-                gameState.paused = false;
-                
-                // Hide resume button after use
-                resumeGameButton.style.display = 'none';
-            });
-        }
-        
-        function createBubbles() {
-            // Create bubbles for the animation
-            for (let i = 0; i < 20; i++) {
-                const bubble = document.createElement('div');
-                bubble.className = 'bubble';
-                
-                // Random size between 10px and 50px
-                const size = 10 + Math.random() * 40;
-                bubble.style.width = `${size}px`;
-                bubble.style.height = `${size}px`;
-                
-                // Random horizontal position
-                bubble.style.left = `${Math.random() * 100}%`;
-                
-                // Random delay and duration
-                const delay = Math.random() * 15;
-                const duration = 7 + Math.random() * 10;
-                bubble.style.animation = `float ${duration}s linear ${delay}s infinite`;
-                
-                // Add to container
-                bubblesContainer.appendChild(bubble);
-            }
-        }
-        
-        function startGame() {
-            // Hide title screen and show game
-            titleScreen.style.display = 'none';
-            gameContainer.style.display = 'block';
-            
-            // Initialize diver position
-            gameState.diver.x = canvas.width / 2;
-            gameState.diver.y = 50;
-            
-            // Set game as started
-            gameState.gameStarted = true;
-            
-            // Start game loop if not already running
-            if (!gameState.lastTimestamp) {
-                requestAnimationFrame(gameLoop);
-            }
-            
-            // Periodically save game
-            setInterval(saveGame, 30000); // Save every 30 seconds
-        }
+const WW = 2000, WH = 5000, SURF = 40, CELL = 50, GX = WW / CELL, GY = WH / CELL;
+const isTouch = window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && 'ontouchstart' in window);
 
-        function checkIfMobile() {
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 800;
-            
-            gameState.isMobile = isMobile;
-            
-            if (isMobile) {
-                mobileControls.style.display = 'flex';
-                collectButton.style.display = 'flex';
-                controlsInfo.textContent = 'Tap buttons to move and collect';
-            }
-        }
+/* =========================================================
+   CONTENT
+   ========================================================= */
+const RES = {
+  seaweed:  { name: 'Seaweed',  min: 40,   max: 500,  value: 1,   color: '#3cb371', size: 18, n: 90 },
+  coral:    { name: 'Coral',    min: 120,  max: 1000, value: 3,   color: '#ff7f50', size: 20, n: 80 },
+  pearl:    { name: 'Pearl',    min: 350,  max: 1700, value: 7,   color: '#f0f8ff', size: 14, n: 70 },
+  crystal:  { name: 'Crystal',  min: 1000, max: 2800, value: 15,  color: '#9370db', size: 18, n: 60 },
+  treasure: { name: 'Treasure', min: 1800, max: 3800, value: 50,  color: '#ffd700', size: 24, n: 40 },
+  abyssite: { name: 'Abyssite', min: 3000, max: 4900, value: 120, color: '#00ffd5', size: 18, n: 32 }
+};
+const RKEYS = Object.keys(RES);
+const UPG = {
+  tank:  { name: 'Oxygen Tank',   desc: 'More air per dive.',                         vals: [30, 45, 65, 90, 120, 160], unit: 's air',
+    costs: [{ seaweed: 8 }, { seaweed: 15, coral: 6 }, { coral: 14, pearl: 6 }, { pearl: 12, crystal: 6 }, { crystal: 12, treasure: 5 }] },
+  reg:   { name: 'Regulator',     desc: 'Breathe 15% slower per level.',              vals: [0, 1, 2, 3], unit: '',
+    costs: [{ coral: 8, pearl: 2 }, { pearl: 10, crystal: 3 }, { crystal: 10, treasure: 4 }] },
+  fins:  { name: 'Fins',          desc: 'Swim faster.',                               vals: [150, 180, 215, 255, 300], unit: ' speed',
+    costs: [{ seaweed: 12 }, { coral: 10, pearl: 3 }, { pearl: 10, crystal: 4 }, { crystal: 10, treasure: 4 }] },
+  suit:  { name: 'Pressure Suit', desc: 'Safe depth. Go deeper and your air burns 4x.', vals: [500, 1200, 2000, 3000, 4000, 5100], unit: 'm',
+    costs: [{ seaweed: 10, coral: 4 }, { coral: 12, pearl: 6 }, { pearl: 14, crystal: 6 }, { crystal: 14, treasure: 6 }, { treasure: 10, abyssite: 6 }] },
+  light: { name: 'Flashlight',    desc: 'See further in the dark.',                   vals: [150, 220, 300, 400], unit: 'px light',
+    costs: [{ coral: 6, pearl: 2 }, { pearl: 8, crystal: 4 }, { crystal: 8, treasure: 3 }] },
+  net:   { name: 'Collector',     desc: 'Grab loot from further away.',               vals: [40, 60, 85, 115], unit: 'px reach',
+    costs: [{ seaweed: 15, coral: 4 }, { pearl: 8, crystal: 2 }, { treasure: 4, abyssite: 3 }] },
+  bag:   { name: 'Dive Bag',      desc: 'Carry more loot per dive.',                  vals: [20, 35, 55, 80], unit: ' items',
+    costs: [{ seaweed: 12, coral: 4 }, { coral: 12, pearl: 6 }, { crystal: 8, treasure: 4 }] },
+  sonar: { name: 'Sonar',         desc: 'Shows nearby loot and threats on the minimap.', vals: [0, 1], unit: '',
+    costs: [{ pearl: 10, crystal: 5 }] }
+};
+const UKEYS = Object.keys(UPG);
+const COLORS = ['#ff9900', '#ff5252', '#4caf50', '#9c27b0', '#ffeb3b', '#00e5ff'];
 
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            
-            minimapCanvas.width = minimapCanvas.parentElement.clientWidth;
-            minimapCanvas.height = minimapCanvas.parentElement.clientHeight;
-            
-            // Update minimap after resize
-            updateMinimap();
-        }
+/* =========================================================
+   SAVE  (dd_ namespace, one-time migration from deepDiveSave)
+   ========================================================= */
+const KEY = 'dd_save', OLD_KEY = 'deepDiveSave';
+function defSave() {
+  const bank = {}; RKEYS.forEach(k => bank[k] = 0);
+  const upg = {}; UKEYS.forEach(k => upg[k] = 0);
+  return { v: 2, color: '#ff9900', bank, upg, maxDepth: 0, dives: 0, blackouts: 0, relic: false, explored: '', muted: false, started: false, playSec: 0 };
+}
+let migrated = false;
+function loadSave() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(KEY)); } catch (e) { s = null; }
+  if (!s || typeof s !== 'object') {
+    s = defSave();
+    try {
+      const o = JSON.parse(localStorage.getItem(OLD_KEY));
+      if (o && typeof o === 'object') {
+        if (o.resources) RKEYS.forEach(k => { s.bank[k] = Math.max(0, parseInt(o.resources[k], 10) || 0); });
+        const pu = Array.isArray(o.purchasedUpgrades) ? o.purchasedUpgrades.map(String) : [];
+        const cnt = pre => pu.filter(id => id.indexOf(pre) === 0).length;
+        s.upg.tank = Math.min(5, cnt('oxygen'));
+        s.upg.reg = Math.min(3, cnt('efficiency'));
+        s.upg.fins = Math.min(4, cnt('speed'));
+        s.upg.net = Math.min(3, cnt('collector'));
+        s.maxDepth = Math.max(0, parseInt(o.reachedMaxDepth, 10) || 0);
+        if (o.diver && /^#[0-9a-f]{6}$/i.test(o.diver.color || '')) s.color = o.diver.color;
+        s.started = true;
+        migrated = true;
+      }
+    } catch (e) {}
+    try { localStorage.removeItem(OLD_KEY); } catch (e) {}
+  }
+  const d = defSave(), m = Object.assign(d, s);
+  m.bank = Object.assign(defSave().bank, (s && s.bank) || {});
+  m.upg = Object.assign(defSave().upg, (s && s.upg) || {});
+  UKEYS.forEach(k => { m.upg[k] = clamp(parseInt(m.upg[k], 10) || 0, 0, UPG[k].costs.length); });
+  return m;
+}
+const save = loadSave();
+let explored = new Uint8Array(GX * GY);
+if (typeof save.explored === 'string' && save.explored.length === GX * GY) for (let i = 0; i < explored.length; i++) explored[i] = save.explored.charCodeAt(i) === 49 ? 1 : 0;
+function persist() {
+  let s = ''; for (let i = 0; i < explored.length; i++) s += explored[i] ? '1' : '0';
+  save.explored = s;
+  try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {}
+}
+persist();
 
-        function generateLevel() {
-            // Clear existing objects
-            gameState.levelObjects = [];
-            
-            // Generate resources based on depth availability
-            const resourceCount = 300; // Total number of resources to generate
-            
-            for (let i = 0; i < resourceCount; i++) {
-                // Determine which resource to place
-                const resourceKeys = Object.keys(resourceTypes);
-                let resourceTypeKey = resourceKeys[Math.floor(Math.random() * resourceKeys.length)];
-                const resourceType = resourceTypes[resourceTypeKey];
-                
-                // Place resource at appropriate depth
-                const x = Math.random() * gameState.gameWidth;
-                const y = resourceType.minDepth + Math.random() * (resourceType.maxDepth - resourceType.minDepth);
-                
-                // Add some randomization to distribution
-                if (Math.random() > 0.7) {
-                    // Add to level objects
-                    gameState.levelObjects.push({
-                        type: 'resource',
-                        resourceType: resourceTypeKey,
-                        x,
-                        y,
-                        width: resourceType.size,
-                        height: resourceType.size,
-                        collected: false,
-                        id: `resource_${resourceTypeKey}_${i}_${Date.now()}`
-                    });
-                }
-            }
-            
-            // Generate oxygen tanks
-            const oxygenCount = 30;
-            for (let i = 0; i < oxygenCount; i++) {
-                // Place oxygen tanks at various depths
-                const x = Math.random() * gameState.gameWidth;
-                const y = 100 + Math.random() * 2000; // Distribute oxygen up to 2000m
-                
-                gameState.levelObjects.push({
-                    type: 'oxygen',
-                    x,
-                    y,
-                    width: oxygenTank.size,
-                    height: oxygenTank.size,
-                    collected: false,
-                    id: `oxygen_${i}_${Date.now()}`
-                });
-            }
-            
-            // Add some decorative elements (rocks, plants, etc)
-            const decorCount = 200;
-            for (let i = 0; i < decorCount; i++) {
-                const x = Math.random() * gameState.gameWidth;
-                const y = Math.random() * gameState.gameHeight;
-                const size = 10 + Math.random() * 30;
-                
-                gameState.levelObjects.push({
-                    type: 'decor',
-                    x,
-                    y,
-                    width: size,
-                    height: size,
-                    color: `rgba(${100 + Math.random() * 155}, ${100 + Math.random() * 155}, ${100 + Math.random() * 155}, ${0.2 + Math.random() * 0.3})`
-                });
-            }
-        }
+const stat = {
+  get tank() { return UPG.tank.vals[save.upg.tank]; },
+  get drain() { return Math.pow(0.85, save.upg.reg); },
+  get speed() { return UPG.fins.vals[save.upg.fins]; },
+  get rating() { return UPG.suit.vals[save.upg.suit]; },
+  get light() { return UPG.light.vals[save.upg.light]; },
+  get net() { return UPG.net.vals[save.upg.net]; },
+  get bag() { return UPG.bag.vals[save.upg.bag]; },
+  get sonar() { return save.upg.sonar > 0; }
+};
 
-        function setupEventListeners() {
-            // Keyboard controls
-            window.addEventListener('keydown', (e) => {
-                updateKeys(e.key, true);
-            });
-            
-            window.addEventListener('keyup', (e) => {
-                updateKeys(e.key, false);
-            });
-            
-            // Shop controls
-            shopButton.addEventListener('click', toggleShop);
-            closeShopButton.addEventListener('click', toggleShop);
-            
-            // Mobile controls
-            if (gameState.isMobile) {
-                setupMobileControls();
-            }
-            
-            // ESC key to show title screen
-            window.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && gameState.gameStarted) {
-                    showTitleScreen();
-                }
-            });
-        }
-        
-        function showTitleScreen() {
-            if (!gameState.shopOpen) {
-                titleScreen.style.display = 'flex';
-                gameContainer.style.display = 'none';
-                gameState.paused = true;
-                resumeGameButton.style.display = 'block';
-            }
-        }
-        
-        function setupMobileControls() {
-            // Direction buttons
-            const upButton = document.getElementById('up-button');
-            const downButton = document.getElementById('down-button');
-            const leftButton = document.getElementById('left-button');
-            const rightButton = document.getElementById('right-button');
-            
-            // Touch events for direction buttons
-            upButton.addEventListener('touchstart', () => { gameState.keys.up = true; });
-            upButton.addEventListener('touchend', () => { gameState.keys.up = false; });
-            
-            downButton.addEventListener('touchstart', () => { gameState.keys.down = true; });
-            downButton.addEventListener('touchend', () => { gameState.keys.down = false; });
-            
-            leftButton.addEventListener('touchstart', () => { gameState.keys.left = true; });
-            leftButton.addEventListener('touchend', () => { gameState.keys.left = false; });
-            
-            rightButton.addEventListener('touchstart', () => { gameState.keys.right = true; });
-            rightButton.addEventListener('touchend', () => { gameState.keys.right = false; });
-            
-            // Collect button
-            const collectBtn = document.getElementById('collect-button');
-            collectBtn.addEventListener('touchstart', () => { gameState.keys.space = true; });
-            collectBtn.addEventListener('touchend', () => { gameState.keys.space = false; });
-            
-            // Prevent default touch behavior to avoid scrolling
-            document.addEventListener('touchmove', (e) => {
-                if (e.target === canvas || 
-                    e.target.className === 'mobile-button' || 
-                    e.target.id === 'collect-button') {
-                    e.preventDefault();
-                }
-            }, { passive: false });
-        }
+/* =========================================================
+   AUDIO
+   ========================================================= */
+let AC = null, master = null, nbuf = null;
+function audio() {
+  if (!AC) {
+    try {
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      master = AC.createGain(); master.gain.value = save.muted ? 0 : 0.4; master.connect(AC.destination);
+      nbuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+      const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    } catch (e) { AC = null; }
+  }
+  if (AC && AC.state === 'suspended') AC.resume();
+}
+function tone(f0, f1, dur, type = 'sine', vol = 0.15, delay = 0) {
+  if (!AC) return;
+  const t = AC.currentTime + delay, o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.setValueAtTime(f0, t);
+  if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+}
+function noise(dur, vol, freq = 1200, delay = 0) {
+  if (!AC) return;
+  const t = AC.currentTime + delay, s = AC.createBufferSource(); s.buffer = nbuf;
+  const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = freq;
+  const g = AC.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.02);
+}
+const SFX = {
+  grab(i)  { tone(520 + i * 120, 780 + i * 160, 0.09, 'triangle', 0.12); },
+  air()    { noise(0.3, 0.25, 2500); tone(300, 700, 0.25, 'sine', 0.1); },
+  bank()   { [0, 0.08, 0.16].forEach((d, i) => tone(660 * (1 + i * 0.25), 660 * (1 + i * 0.25), 0.12, 'square', 0.07, d)); },
+  sting()  { tone(1200, 300, 0.2, 'sawtooth', 0.1); },
+  bite()   { noise(0.25, 0.6, 700); tone(160, 60, 0.3, 'sawtooth', 0.18); },
+  warn()   { tone(440, 440, 0.08, 'square', 0.06); },
+  buy()    { [0, 0.07, 0.14, 0.21].forEach((d, i) => tone(523 * Math.pow(1.26, i), 523 * Math.pow(1.26, i), 0.1, 'triangle', 0.12, d)); },
+  black()  { tone(300, 40, 1.2, 'sine', 0.25); },
+  relic()  { [0, 0.15, 0.3, 0.45, 0.7].forEach((d, i) => tone(392 * Math.pow(1.19, i), 392 * Math.pow(1.19, i), 0.4, 'triangle', 0.14, d)); },
+  full()   { tone(220, 180, 0.15, 'square', 0.06); }
+};
+function applyMute() { if (master) master.gain.value = save.muted ? 0 : 0.4; setText($('muteBtn'), save.muted ? 'SOUND OFF' : 'SOUND ON'); }
 
-        function updateKeys(key, isPressed) {
-            switch (key) {
-                case 'ArrowUp':
-                case 'w':
-                    gameState.keys.up = isPressed;
-                    break;
-                case 'ArrowDown':
-                case 's':
-                    gameState.keys.down = isPressed;
-                    break;
-                case 'ArrowLeft':
-                case 'a':
-                    gameState.keys.left = isPressed;
-                    break;
-                case 'ArrowRight':
-                case 'd':
-                    gameState.keys.right = isPressed;
-                    break;
-                case ' ':
-                    gameState.keys.space = isPressed;
-                    break;
-                case 'Escape':
-                    // Handled separately to avoid conflicts
-                    break;
-            }
-        }
+/* =========================================================
+   WORLD
+   ========================================================= */
+let res = [], tanks = [], vents = [], jellies = [], sharks = [], anglers = [], parts = [], rocks = [];
+const relic = { x: WW / 2, y: WH - 70 };
+function genWorld() {
+  res = []; tanks = []; vents = []; jellies = []; sharks = []; anglers = []; parts = [];
+  for (const k of RKEYS) {
+    const R = RES[k];
+    for (let i = 0; i < R.n; i++) res.push({ k, x: rand(40, WW - 40), y: rand(R.min, R.max), taken: false, t: 0, ph: rand(0, TAU) });
+  }
+  for (let i = 0; i < 44; i++) tanks.push({ x: rand(60, WW - 60), y: rand(150, 4700), taken: false, t: 0 });
+  for (let i = 0; i < 16; i++) vents.push({ x: rand(100, WW - 100), y: 250 + i * 270 + rand(-60, 60), bt: 0 });
+  for (let i = 0; i < 70; i++) { const y = rand(150, 2600); jellies.push({ bx: rand(40, WW - 40), by: y, x: 0, y, r: rand(12, 20), ph: rand(0, TAU) }); }
+  for (let i = 0; i < 14; i++) { const y = rand(450, 3200); sharks.push({ x: rand(100, WW - 100), y, home: y, dir: Math.random() < 0.5 ? -1 : 1, st: 'patrol', t: 0, cd: 0 }); }
+  for (let i = 0; i < 12; i++) { const y = rand(2900, 4850); anglers.push({ x: rand(100, WW - 100), y, home: y, dir: Math.random() < 0.5 ? -1 : 1, st: 'idle', t: 0, cd: 0, ph: rand(0, TAU) }); }
+  rocks = []; for (let x = -40; x < WW + 80; x += rand(30, 70)) rocks.push({ x, h: rand(10, 50), w: rand(40, 90) });
+}
+genWorld();
 
-        function toggleShop() {
-            gameState.shopOpen = !gameState.shopOpen;
-            
-            if (gameState.shopOpen) {
-                gameState.paused = true;
-                shopContainer.style.display = 'block';
-                updateShopItems();
-            } else {
-                gameState.paused = false;
-                shopContainer.style.display = 'none';
-            }
-            
-            // Hide alert if shop is opened
-            if (gameState.shopOpen) {
-                shopAlert.style.display = 'none';
-            }
-        }
+/* =========================================================
+   STATE
+   ========================================================= */
+let state = 'title'; // title | play | pause | shop | blackout | win
+const dv = { x: WW / 2, y: 20, vx: 0, vy: 0, o2: 30, inv: 0, stun: 0, face: 1, bagN: 0, bag: {}, kick: 0 };
+RKEYS.forEach(k => dv.bag[k] = 0);
+const cam = { x: 0, y: -200 };
+let VW = 800, VH = 600, dpr = 1, T = 0, shake = 0, hurtFlash = 0, toastT = 0, warnT = 0, fullT = 0, saveT = 20, bubbleT = 0;
+let god = false;
+const keys = {};
+const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+let boostTouch = false;
+const snow = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), s: rand(1, 2.5), d: rand(0.2, 0.6) }));
 
-        function updateShopItems() {
-            shopItems.innerHTML = '';
-            
-            // Group upgrades by category
-            const categories = {
-                oxygen: { title: "Oxygen Equipment", items: [] },
-                movement: { title: "Movement Gear", items: [] },
-                collection: { title: "Collection Tools", items: [] }
-            };
-            
-            // Filter available upgrades
-            upgrades.forEach(upgrade => {
-                // Skip if already purchased
-                if (purchasedUpgrades.includes(upgrade.id)) return;
-                
-                // Check if prerequisites are met
-                if (upgrade.requires && !upgrade.requires.every(req => purchasedUpgrades.includes(req))) return;
-                
-                // Add to appropriate category
-                categories[upgrade.category].items.push(upgrade);
-            });
-            
-            // Create HTML for each category
-            Object.values(categories).forEach(category => {
-                if (category.items.length === 0) return;
-                
-                const categoryDiv = document.createElement('div');
-                categoryDiv.className = 'shop-category';
-                
-                const categoryTitle = document.createElement('div');
-                categoryTitle.className = 'shop-category-title';
-                categoryTitle.textContent = category.title;
-                categoryDiv.appendChild(categoryTitle);
-                
-                category.items.forEach(upgrade => {
-                    const item = document.createElement('div');
-                    item.className = 'shop-item';
-                    
-                    const info = document.createElement('div');
-                    info.className = 'shop-item-info';
-                    
-                    const nameDiv = document.createElement('div');
-                    nameDiv.className = 'shop-item-name';
-                    nameDiv.textContent = upgrade.name;
-                    
-                    const descDiv = document.createElement('div');
-                    descDiv.className = 'shop-item-desc';
-                    descDiv.textContent = upgrade.description;
-                    
-                    const costDiv = document.createElement('div');
-                    costDiv.className = 'shop-item-cost';
-                    costDiv.textContent = `Cost: ${formatCost(upgrade.cost)}`;
-                    
-                    info.appendChild(nameDiv);
-                    info.appendChild(descDiv);
-                    info.appendChild(costDiv);
-                    
-                    const button = document.createElement('button');
-                    button.textContent = 'Buy';
-                    button.onclick = () => purchaseUpgrade(upgrade);
-                    
-                    // Check if player can afford it
-                    if (!canAfford(upgrade.cost)) {
-                        button.disabled = true;
-                    }
-                    
-                    item.appendChild(info);
-                    item.appendChild(button);
-                    categoryDiv.appendChild(item);
-                });
-                
-                shopItems.appendChild(categoryDiv);
-            });
-            
-            if (shopItems.children.length === 0) {
-                shopItems.innerHTML = '<div style="text-align: center; padding: 20px;">No more upgrades available!</div>';
-            }
-        }
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  VW = window.innerWidth; VH = window.innerHeight;
+  cv.width = Math.round(VW * dpr); cv.height = Math.round(VH * dpr);
+  dark.width = cv.width; dark.height = cv.height;
+}
+window.addEventListener('resize', resize);
 
-        function formatCost(cost) {
-            return Object.entries(cost)
-                .map(([resource, amount]) => `${amount} ${resourceTypes[resource].name}`)
-                .join(', ');
-        }
+/* =========================================================
+   HELPERS
+   ========================================================= */
+function toast(msg, dur = 1.6) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); toastT = dur; }
+function depthNow() { return Math.max(0, Math.round(dv.y)); }
+function markExplored() {
+  const cx = Math.floor(dv.x / CELL), cy = Math.floor(dv.y / CELL);
+  for (let y = cy - 2; y <= cy + 2; y++) for (let x = cx - 2; x <= cx + 2; x++)
+    if (x >= 0 && y >= 0 && x < GX && y < GY) explored[y * GX + x] = 1;
+}
+function bankBag() {
+  if (dv.bagN <= 0) return;
+  let val = 0;
+  RKEYS.forEach(k => { save.bank[k] += dv.bag[k]; val += dv.bag[k] * RES[k].value; dv.bag[k] = 0; });
+  toast('Banked ' + dv.bagN + ' items (worth ' + val + ')', 2.2);
+  dv.bagN = 0; save.dives++;
+  SFX.bank(); persist(); renderShopBtn();
+}
+function hurt(sec, kind) {
+  if (god || dv.inv > 0 || state !== 'play') return;
+  dv.o2 -= sec; dv.inv = 1.2; shake = 0.35; hurtFlash = 0.4;
+  if (kind === 'sting') { dv.stun = 0.7; SFX.sting(); toast('Jellyfish sting! -' + sec + 's air'); }
+  else { SFX.bite(); toast((kind === 'angler' ? 'Anglerfish' : 'Shark') + ' bite! -' + sec + 's air'); }
+}
+function blackout() {
+  state = 'blackout';
+  let lost = 0, kept = 0;
+  RKEYS.forEach(k => { const l = Math.ceil(dv.bag[k] / 2); lost += l; kept += dv.bag[k] - l; save.bank[k] += dv.bag[k] - l; dv.bag[k] = 0; });
+  dv.bagN = 0; save.blackouts++;
+  SFX.black(); persist();
+  setText($('boStats'), `The boat crew fished you out at <b>${depthNow()}m</b>.<br>` +
+    (lost ? `You dropped <b class="bad">${lost}</b> items on the way up. <b>${kept}</b> made it to the bank.` : 'Your bag was empty, so nothing lost. Small mercies.') +
+    `<br><span style="opacity:.75;font-size:14px">Tip: surface before the bar hits zero. Vents and O&#8322; cans refill you.</span>`);
+  showScreen('blackout');
+}
+function wakeUp() {
+  dv.x = WW / 2; dv.y = 20; dv.vx = dv.vy = 0; dv.o2 = stat.tank; dv.inv = 2; dv.stun = 0;
+  state = 'play'; showScreen(null);
+}
+function canAfford(cost) { return Object.entries(cost).every(([k, n]) => save.bank[k] >= n); }
 
-        function canAfford(cost) {
-            return Object.entries(cost).every(([resource, amount]) => 
-                gameState.resources[resource] >= amount
-            );
-        }
+/* =========================================================
+   UPDATE
+   ========================================================= */
+function update(dt) {
+  T += dt;
+  save.playSec += dt;
+  toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on');
+  shake = Math.max(0, shake - dt); hurtFlash = Math.max(0, hurtFlash - dt);
+  saveT -= dt; if (saveT <= 0) { saveT = 20; persist(); }
 
-        function purchaseUpgrade(upgrade) {
-            if (!canAfford(upgrade.cost)) return;
-            
-            // Deduct resources
-            Object.entries(upgrade.cost).forEach(([resource, amount]) => {
-                gameState.resources[resource] -= amount;
-            });
-            
-            // Apply upgrade
-            upgrade.effect();
-            
-            // Mark as purchased
-            purchasedUpgrades.push(upgrade.id);
-            
-            // Update displays
-            updateResourcesDisplay();
-            updateShopItems();
-            
-            // Check for available upgrades after purchase
-            checkAvailableUpgrades();
-            
-            // Show message
-            showMessage(`Upgraded: ${upgrade.name}`);
-            
-            // Refill oxygen when buying upgrades (quality of life)
-            gameState.diver.oxygenLevel = gameState.diver.oxygenCapacity;
-            
-            // Save game after purchase
-            saveGame();
-        }
+  // input
+  let ix = 0, iy = 0;
+  if (keys.ArrowLeft || keys.KeyA) ix -= 1;
+  if (keys.ArrowRight || keys.KeyD) ix += 1;
+  if (keys.ArrowUp || keys.KeyW) iy -= 1;
+  if (keys.ArrowDown || keys.KeyS) iy += 1;
+  if (joy.id !== null) { ix += joy.x; iy += joy.y; }
+  const il = Math.hypot(ix, iy); if (il > 1) { ix /= il; iy /= il; }
+  const boosting = (keys.ShiftLeft || keys.ShiftRight || keys.Space || boostTouch) && il > 0.1 && dv.y > SURF;
+  const sp = stat.speed * (dv.stun > 0 ? 0.35 : 1) * (boosting ? 1.55 : 1);
+  const k = Math.min(1, dt * 6);
+  dv.vx += (ix * sp - dv.vx) * k; dv.vy += (iy * sp - dv.vy) * k;
+  dv.x = clamp(dv.x + dv.vx * dt, 15, WW - 15);
+  dv.y = clamp(dv.y + dv.vy * dt, 12, WH - 28);
+  if (dv.vx > 8) dv.face = 1; else if (dv.vx < -8) dv.face = -1;
+  dv.kick += dt * (4 + Math.hypot(dv.vx, dv.vy) / 30);
+  dv.inv = Math.max(0, dv.inv - dt); dv.stun = Math.max(0, dv.stun - dt);
+  const dep = depthNow();
+  if (dep > save.maxDepth) save.maxDepth = dep;
+  markExplored();
 
-        function showMessage(text, duration = 3000) {
-            messageBox.textContent = text;
-            messageBox.style.display = 'block';
-            
-            setTimeout(() => {
-                messageBox.style.display = 'none';
-            }, duration);
-        }
-        
-        function checkAvailableUpgrades() {
-            // Check if there are any upgrades the player can afford
-            let hasAvailable = false;
-            
-            for (const upgrade of upgrades) {
-                // Skip if already purchased
-                if (purchasedUpgrades.includes(upgrade.id)) continue;
-                
-                // Skip if prerequisites are not met
-                if (upgrade.requires && !upgrade.requires.every(req => purchasedUpgrades.includes(req))) continue;
-                
-                // Check if player can afford it
-                if (canAfford(upgrade.cost)) {
-                    hasAvailable = true;
-                    break;
-                }
-            }
-            
-            // Update game state and UI
-            gameState.hasAvailableUpgrades = hasAvailable;
-            shopAlert.style.display = hasAvailable ? 'block' : 'none';
-        }
+  // oxygen
+  const max = stat.tank;
+  if (dv.y < SURF) {
+    dv.o2 = Math.min(max, dv.o2 + max * 0.6 * dt);
+    if (dv.bagN > 0) bankBag();
+  } else {
+    let drain = stat.drain * (1 + dep / 2500);
+    if (dep > stat.rating) drain *= 4;
+    if (boosting) drain *= 2;
+    dv.o2 -= drain * dt;
+    for (const v of vents) {
+      if (Math.abs(dv.x - v.x) < 34 && dv.y < v.y && dv.y > v.y - 190) {
+        dv.o2 = Math.min(max, dv.o2 + 9 * dt);
+        if (Math.random() < dt * 8) toast('Breathing from a vent...', 0.6);
+      }
+    }
+  }
+  if (dv.o2 / max < 0.25 && dv.y > SURF) { warnT -= dt; if (warnT <= 0) { SFX.warn(); warnT = dv.o2 / max < 0.12 ? 0.35 : 0.8; } }
+  if (dv.o2 <= 0) { dv.o2 = 0; if (!god) { blackout(); return; } dv.o2 = max; }
 
-        function updateExploredMap(x, y) {
-            // Calculate grid cell for the current position (10x10 grid cells)
-            const gridX = Math.floor(x / 50);
-            const gridY = Math.floor(y / 50);
-            
-            // Mark as explored
-            const key = `${gridX},${gridY}`;
-            gameState.exploredMap[key] = true;
-            
-            // Also mark adjacent cells as partially explored
-            for (let dx = -1; dx <= 1; dx++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    if (dx === 0 && dy === 0) continue; // Skip the center
-                    
-                    const adjKey = `${gridX + dx},${gridY + dy}`;
-                    if (!gameState.exploredMap[adjKey]) {
-                        gameState.exploredMap[adjKey] = 'partial';
-                    }
-                }
-            }
-        }
+  // loot
+  const reach = stat.net, cap = stat.bag;
+  fullT -= dt;
+  for (const r of res) {
+    if (r.taken) { r.t -= dt; if (r.t <= 0 && Math.hypot(r.x - dv.x, r.y - dv.y) > 500) r.taken = false; continue; }
+    if (Math.abs(r.x - dv.x) > reach + 20 || Math.abs(r.y - dv.y) > reach + 20) continue;
+    if (Math.hypot(r.x - dv.x, r.y - dv.y) < reach + RES[r.k].size / 2) {
+      if (dv.bagN >= cap) { if (fullT <= 0) { toast('Bag full! Surface to bank it.'); SFX.full(); fullT = 2; } continue; }
+      r.taken = true; r.t = 90; dv.bag[r.k]++; dv.bagN++;
+      SFX.grab(RKEYS.indexOf(r.k)); toast('+1 ' + RES[r.k].name, 0.9);
+      for (let i = 0; i < 6; i++) parts.push({ x: r.x, y: r.y, vx: rand(-60, 60), vy: rand(-60, 60), life: 0.5, max: 0.5, r: 2.5, col: RES[r.k].color });
+    }
+  }
+  for (const tk of tanks) {
+    if (tk.taken) { tk.t -= dt; if (tk.t <= 0 && Math.hypot(tk.x - dv.x, tk.y - dv.y) > 500) tk.taken = false; continue; }
+    if (Math.hypot(tk.x - dv.x, tk.y - dv.y) < reach + 8) {
+      tk.taken = true; tk.t = 45; dv.o2 = Math.min(max, dv.o2 + max * 0.35);
+      SFX.air(); toast('+O\u2082 can');
+    }
+  }
+  if (!save.relic && Math.hypot(relic.x - dv.x, relic.y - dv.y) < reach + 20) {
+    save.relic = true; persist(); SFX.relic(); state = 'win';
+    const m = Math.floor(save.playSec / 60);
+    setText($('winStats'), `Depth <b>${dep}m</b><br>Dives banked <b>${save.dives}</b> &middot; Blackouts <b>${save.blackouts}</b><br>Time played <b>${m} min</b><br><span style="opacity:.8;font-size:14px">The abyss is all yours now. Abyssite still sells, if you're greedy.</span>`);
+    showScreen('win');
+    return;
+  }
 
-        function updateMinimap() {
-            // Clear minimap
-            minimapCtx.fillStyle = '#04142d';
-            minimapCtx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
-            
-            // Calculate scale factors
-            const scaleX = minimapCanvas.width / gameState.gameWidth;
-            const scaleY = minimapCanvas.height / gameState.gameHeight;
-            
-            // Draw explored areas
-            for (const key in gameState.exploredMap) {
-                const [gridX, gridY] = key.split(',').map(Number);
-                const x = gridX * 50 * scaleX;
-                const y = gridY * 50 * scaleY;
-                const width = 50 * scaleX;
-                const height = 50 * scaleY;
-                
-                // Different colors for fully explored vs partially explored
-                if (gameState.exploredMap[key] === true) {
-                    minimapCtx.fillStyle = 'rgba(41, 182, 246, 0.5)';
-                } else {
-                    minimapCtx.fillStyle = 'rgba(41, 182, 246, 0.2)';
-                }
-                
-                minimapCtx.fillRect(x, y, width, height);
-            }
-            
-            // Draw resources on the minimap (small dots)
-            gameState.levelObjects.forEach(obj => {
-                if ((obj.type === 'resource' || obj.type === 'oxygen') && !obj.collected) {
-                    const x = obj.x * scaleX;
-                    const y = obj.y * scaleY;
-                    
-                    if (obj.type === 'resource') {
-                        minimapCtx.fillStyle = resourceTypes[obj.resourceType].color;
-                    } else {
-                        minimapCtx.fillStyle = oxygenTank.color;
-                    }
-                    
-                    minimapCtx.beginPath();
-                    minimapCtx.arc(x, y, 1.5, 0, Math.PI * 2);
-                    minimapCtx.fill();
-                }
-            });
-            
-            // Draw diver position
-            const diverX = gameState.diver.x * scaleX;
-            const diverY = gameState.diver.y * scaleY;
-            
-            minimapCtx.fillStyle = gameState.diver.color;
-            minimapCtx.beginPath();
-            minimapCtx.arc(diverX, diverY, 3, 0, Math.PI * 2);
-            minimapCtx.fill();
-            
-            // Draw a small rectangle showing the current view area
-            const viewX = gameState.camera.x * scaleX;
-            const viewY = gameState.camera.y * scaleY;
-            const viewWidth = canvas.width * scaleX;
-            const viewHeight = canvas.height * scaleY;
-            
-            minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-            minimapCtx.lineWidth = 1;
-            minimapCtx.strokeRect(viewX, viewY, viewWidth, viewHeight);
-        }
-        
-        // Respawn functions
-        function scheduleRespawn(obj) {
-            if (obj.type === 'resource') {
-                const resourceType = resourceTypes[obj.resourceType];
-                const respawnTime = resourceType.respawnTime;
-                
-                // Schedule respawn
-                gameState.respawnTimers.resources[obj.id] = setTimeout(() => {
-                    // Find object and mark as uncollected
-                    const objIndex = gameState.levelObjects.findIndex(item => item.id === obj.id);
-                    if (objIndex !== -1) {
-                        gameState.levelObjects[objIndex].collected = false;
-                    }
-                }, respawnTime);
-            }
-            else if (obj.type === 'oxygen') {
-                // Schedule respawn
-                gameState.respawnTimers.oxygen[obj.id] = setTimeout(() => {
-                    // Find object and mark as uncollected
-                    const objIndex = gameState.levelObjects.findIndex(item => item.id === obj.id);
-                    if (objIndex !== -1) {
-                        gameState.levelObjects[objIndex].collected = false;
-                    }
-                }, oxygenTank.respawnTime);
-            }
-        }
-        
-        // Local Storage Functions
-        function saveGame() {
-            if (!gameState.gameStarted) return;
-            
-            const saveData = {
-                diver: {
-                    oxygenCapacity: gameState.diver.oxygenCapacity,
-                    oxygenDepletionRate: gameState.diver.oxygenDepletionRate,
-                    speed: gameState.diver.speed,
-                    collectRange: gameState.diver.collectRange,
-                    color: gameState.diver.color
-                },
-                resources: gameState.resources,
-                reachedMaxDepth: gameState.reachedMaxDepth,
-                purchasedUpgrades: purchasedUpgrades,
-                exploredMap: gameState.exploredMap
-            };
-            
-            try {
-                localStorage.setItem('deepDiveSave', JSON.stringify(saveData));
-                console.log('Game saved successfully');
-            } catch (error) {
-                console.error('Failed to save game:', error);
-            }
-        }
-        
-        function loadGame() {
-            try {
-                const saveData = localStorage.getItem('deepDiveSave');
-                
-                if (saveData) {
-                    const parsedData = JSON.parse(saveData);
-                    
-                    // Load diver stats
-                    gameState.diver.oxygenCapacity = parsedData.diver.oxygenCapacity || 100;
-                    gameState.diver.oxygenDepletionRate = parsedData.diver.oxygenDepletionRate || 0.2;
-                    gameState.diver.speed = parsedData.diver.speed || 3;
-                    gameState.diver.collectRange = parsedData.diver.collectRange || 40;
-                    
-                    if (parsedData.diver.color) {
-                        gameState.diver.color = parsedData.diver.color;
-                        
-                        // Update color selection in the UI
-                        colorOptions.forEach(option => {
-                            if (option.getAttribute('data-color') === parsedData.diver.color) {
-                                colorOptions.forEach(opt => opt.classList.remove('selected'));
-                                option.classList.add('selected');
-                                diverPreview.style.backgroundColor = parsedData.diver.color;
-                            }
-                        });
-                    }
-                    
-                    // Load resources
-                    if (parsedData.resources) {
-                        gameState.resources = parsedData.resources;
-                    }
-                    
-                    // Load max depth
-                    if (parsedData.reachedMaxDepth) {
-                        gameState.reachedMaxDepth = parsedData.reachedMaxDepth;
-                    }
-                    
-                    // Load purchased upgrades
-                    if (parsedData.purchasedUpgrades) {
-                        purchasedUpgrades = parsedData.purchasedUpgrades;
-                    }
-                    
-                    // Load explored map
-                    if (parsedData.exploredMap) {
-                        gameState.exploredMap = parsedData.exploredMap;
-                    }
-                    
-                    // Show resume button
-                    resumeGameButton.style.display = 'block';
-                    
-                    console.log('Game loaded successfully');
-                    
-                    // Set game as started to enable saving
-                    gameState.gameStarted = true;
-                    
-                    return true;
-                }
-            } catch (error) {
-                console.error('Failed to load game:', error);
-            }
-            
-            return false;
-        }
-        
-        function resetGame() {
-            localStorage.removeItem('deepDiveSave');
-            location.reload();
-        }
+  // hazards
+  for (const j of jellies) {
+    j.x = j.bx + Math.sin(T * 0.6 + j.ph) * 40; j.y = j.by + Math.sin(T * 0.9 + j.ph) * 25;
+    if (Math.abs(j.x - dv.x) < 40 && Math.abs(j.y - dv.y) < 50 && Math.hypot(j.x - dv.x, j.y + 6 - dv.y) < j.r + 12) hurt(4, 'sting');
+  }
+  const lit = stat.light + 120;
+  for (const s of sharks) updateHunter(s, dt, { patrol: 90, chase: 215, retreat: 170, sense: Math.min(300, lit), bite: 10, kind: 'shark', range: 260 });
+  for (const a of anglers) updateHunter(a, dt, { patrol: 30, chase: 170, retreat: 140, sense: 240, bite: 14, kind: 'angler', range: 200 });
 
-        function gameLoop(timestamp) {
-            // Calculate delta time for smooth movement
-            if (!gameState.lastTimestamp) gameState.lastTimestamp = timestamp;
-            gameState.deltaTime = (timestamp - gameState.lastTimestamp) / 1000; // in seconds
-            gameState.lastTimestamp = timestamp;
-            
-            if (!gameState.paused) {
-                update();
-            }
-            
-            render();
-            requestAnimationFrame(gameLoop);
-        }
+  // bubbles + particles
+  bubbleT -= dt;
+  if (bubbleT <= 0 && dv.y > SURF) { bubbleT = boosting ? 0.06 : 0.25; parts.push({ x: dv.x + dv.face * 8, y: dv.y - 14, vx: rand(-10, 10), vy: rand(-70, -40), life: 1.6, max: 1.6, r: rand(1.5, 3.5), col: 'rgba(255,255,255,0.6)', bub: true }); }
+  for (const v of vents) {
+    if (Math.abs(v.y - (cam.y + VH / 2)) > VH) continue;
+    v.bt -= dt;
+    if (v.bt <= 0) { v.bt = 0.08; parts.push({ x: v.x + rand(-14, 14), y: v.y, vx: rand(-8, 8), vy: rand(-110, -70), life: 1.8, max: 1.8, r: rand(2, 5), col: 'rgba(200,240,255,0.55)', bub: true }); }
+  }
+  for (const p of parts) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.bub && p.y < 2) p.life = 0; }
+  if (parts.length > 400) parts.splice(0, parts.length - 400);
+  parts = parts.filter(p => p.life > 0);
 
-        function update() {
-            // Store previous depth for comparison
-            gameState.previousDepth = gameState.currentDepth;
-            
-            // Update diver position based on keys
-            if (gameState.keys.up) gameState.diver.y -= gameState.diver.speed * 60 * gameState.deltaTime;
-            if (gameState.keys.down) gameState.diver.y += gameState.diver.speed * 60 * gameState.deltaTime;
-            if (gameState.keys.left) gameState.diver.x -= gameState.diver.speed * 60 * gameState.deltaTime;
-            if (gameState.keys.right) gameState.diver.x += gameState.diver.speed * 60 * gameState.deltaTime;
-            
-            // Constrain diver to game bounds
-            gameState.diver.x = Math.max(0, Math.min(gameState.gameWidth, gameState.diver.x));
-            
-            // Allow diving to any depth, just constrain to game bounds
-            gameState.diver.y = Math.max(50, Math.min(gameState.gameHeight, gameState.diver.y));
-            
-            // Update current depth and max reached
-            gameState.currentDepth = Math.floor(gameState.diver.y);
-            gameState.reachedMaxDepth = Math.max(gameState.reachedMaxDepth, gameState.currentDepth);
-            
-            // Update camera to follow diver
-            gameState.camera.x = gameState.diver.x - canvas.width / 2;
-            gameState.camera.y = gameState.diver.y - canvas.height / 2;
-            
-            // Keep camera within game bounds
-            gameState.camera.x = Math.max(0, Math.min(gameState.gameWidth - canvas.width, gameState.camera.x));
-            gameState.camera.y = Math.max(0, Math.min(gameState.gameHeight - canvas.height, gameState.camera.y));
-            
-            // Update explored map
-            updateExploredMap(gameState.diver.x, gameState.diver.y);
-            
-            // Update minimap (not every frame for performance)
-            if (Math.random() < 0.05) {
-                updateMinimap();
-            }
-            
-            // Check if the diver is ascending or descending
-            const isAscending = gameState.currentDepth < gameState.previousDepth;
-            
-            // Update oxygen level based on direction
-            if (isAscending && gameState.currentDepth < 300) {
-                // Replenish oxygen when ascending in shallow waters
-                gameState.diver.oxygenLevel += gameState.diver.oxygenReplenishRate * gameState.deltaTime * 60;
-            } else {
-                // Deplete oxygen faster at deeper depths
-                const depthFactor = 1 + (gameState.currentDepth / 500); // Less severe depth penalty
-                gameState.diver.oxygenLevel -= gameState.diver.oxygenDepletionRate * depthFactor * gameState.deltaTime * 60;
-            }
-            
-            // Clamp oxygen level
-            gameState.diver.oxygenLevel = Math.max(0, Math.min(gameState.diver.oxygenCapacity, gameState.diver.oxygenLevel));
-            
-            // If oxygen is too low, warn the player
-            if (gameState.diver.oxygenLevel < gameState.diver.oxygenCapacity * 0.2 && Math.random() < 0.01) {
-                showMessage("Warning: Oxygen level critical!");
-            }
-            
-            // If oxygen is depleted, return to surface
-            if (gameState.diver.oxygenLevel <= 0) {
-                gameState.diver.y = 50; // Return to surface
-                gameState.diver.oxygenLevel = gameState.diver.oxygenCapacity; // Refill oxygen
-                showMessage("You ran out of oxygen and had to surface!");
-            }
-            
-            // Refill oxygen when near surface
-            if (gameState.diver.y < 60) {
-                gameState.diver.oxygenLevel += gameState.diver.oxygenCapacity * 0.02 * gameState.deltaTime * 60;
-                if (gameState.diver.oxygenLevel > gameState.diver.oxygenCapacity) {
-                    gameState.diver.oxygenLevel = gameState.diver.oxygenCapacity;
-                }
-            }
-            
-            // Collect resources
-            if (gameState.keys.space) {
-                collectResources();
-            }
-            
-            // Check for available upgrades periodically
-            if (Math.random() < 0.02) {
-                checkAvailableUpgrades();
-            }
-            
-            // Update UI displays
-            updateUI();
-        }
+  // camera
+  cam.x = VW >= WW + 80 ? (WW - VW) / 2 : clamp(dv.x - VW / 2, -40, WW - VW + 40);
+  cam.y = clamp(dv.y - VH / 2, -220, WH - VH + 60);
+}
+function updateHunter(h, dt, o) {
+  const dx = dv.x - h.x, dy = dv.y - h.y, d = Math.hypot(dx, dy);
+  h.cd = Math.max(0, h.cd - dt); h.t -= dt;
+  if (h.st === 'retreat') {
+    h.x -= Math.sign(dx || 1) * o.retreat * dt; h.y -= Math.sign(dy || 1) * o.retreat * 0.4 * dt;
+    if (h.t <= 0) h.st = 'patrol';
+  } else if (d < o.sense && h.cd <= 0 && dv.y > SURF + 30 && state === 'play') {
+    h.st = 'chase';
+    h.x += dx / d * o.chase * dt; h.y += dy / d * o.chase * dt;
+    h.dir = dx > 0 ? 1 : -1;
+    if (d < (o.kind === 'shark' ? 34 : 30)) {
+      hurt(o.bite, o.kind);
+      const kx = dx / (d || 1), ky = dy / (d || 1);
+      dv.vx += kx * 420; dv.vy += ky * 420;
+      h.st = 'retreat'; h.t = 2.5; h.cd = 3.5;
+    }
+  } else {
+    if (h.st === 'chase') h.st = 'patrol';
+    h.x += h.dir * o.patrol * dt;
+    h.y += (h.home - h.y) * Math.min(1, dt * 0.6);
+    if (h.x < 60) h.dir = 1; if (h.x > WW - 60) h.dir = -1;
+    if (Math.random() < dt * 0.15) h.dir *= -1;
+  }
+  h.x = clamp(h.x, 30, WW - 30);
+  h.y = clamp(h.y, Math.max(SURF + 60, h.home - o.range), Math.min(WH - 40, h.home + o.range));
+}
 
-        function collectResources() {
-            gameState.levelObjects.forEach(obj => {
-                if ((obj.type === 'resource' || obj.type === 'oxygen') && !obj.collected) {
-                    // Check if diver is in range of the resource
-                    const dx = obj.x - gameState.diver.x;
-                    const dy = obj.y - gameState.diver.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (distance <= gameState.diver.collectRange) {
-                        // Collect the resource
-                        obj.collected = true;
-                        
-                        // Schedule respawn
-                        scheduleRespawn(obj);
-                        
-                        if (obj.type === 'resource') {
-                            // Add to player's resources
-                            gameState.resources[obj.resourceType]++;
-                            
-                            // Show collection message
-                            const resourceName = resourceTypes[obj.resourceType].name;
-                            showMessage(`Collected: ${resourceName}`);
-                        } else if (obj.type === 'oxygen') {
-                            // Replenish oxygen
-                            gameState.diver.oxygenLevel += oxygenTank.value;
-                            if (gameState.diver.oxygenLevel > gameState.diver.oxygenCapacity) {
-                                gameState.diver.oxygenLevel = gameState.diver.oxygenCapacity;
-                            }
-                            
-                            // Show collection message
-                            showMessage(`Collected: Oxygen +${oxygenTank.value}`);
-                        }
-                        
-                        // Check if new upgrades are available after collection
-                        checkAvailableUpgrades();
-                    }
-                }
-            });
-        }
+/* =========================================================
+   RENDER
+   ========================================================= */
+const WATER = [[0, [26, 143, 208]], [300, [11, 95, 154]], [1000, [6, 52, 94]], [2000, [3, 26, 51]], [3500, [1, 10, 23]], [5000, [0, 3, 6]]];
+function waterAt(d) {
+  d = clamp(d, 0, 5000);
+  for (let i = 0; i < WATER.length - 1; i++) {
+    const [d0, c0] = WATER[i], [d1, c1] = WATER[i + 1];
+    if (d <= d1) { const t = (d - d0) / (d1 - d0); return c0.map((c, j) => Math.round(lerp(c, c1[j], t))); }
+  }
+  return WATER[WATER.length - 1][1];
+}
+const rgb = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+const onScreen = (x, y, m = 80) => x > cam.x - m && x < cam.x + VW + m && y > cam.y - m && y < cam.y + VH + m;
 
-        function updateUI() {
-            // Update depth display
-            depthDisplay.textContent = gameState.currentDepth;
-            maxDepthDisplay.textContent = gameState.reachedMaxDepth;
-            
-            // Update oxygen level
-            const oxygenPercent = (gameState.diver.oxygenLevel / gameState.diver.oxygenCapacity) * 100;
-            oxygenLevel.style.width = `${oxygenPercent}%`;
-            
-            // Change oxygen color based on level
-            if (oxygenPercent > 60) {
-                oxygenLevel.style.backgroundColor = "#00aaff";
-                oxygenLevel.style.boxShadow = "0 0 8px rgba(0, 170, 255, 0.7)";
-            } else if (oxygenPercent > 30) {
-                oxygenLevel.style.backgroundColor = "#ffaa00";
-                oxygenLevel.style.boxShadow = "0 0 8px rgba(255, 170, 0, 0.7)";
-            } else {
-                oxygenLevel.style.backgroundColor = "#ff3300";
-                oxygenLevel.style.boxShadow = "0 0 8px rgba(255, 51, 0, 0.7)";
-            }
-            
-            // Update resources display
-            updateResourcesDisplay();
-        }
+function render() {
+  const sx = shake > 0 ? rand(-6, 6) * shake : 0, sy = shake > 0 ? rand(-6, 6) * shake : 0;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // water gradient for the visible band
+  const top = cam.y, bot = cam.y + VH;
+  const g = ctx.createLinearGradient(0, 0, 0, VH);
+  g.addColorStop(0, rgb(waterAt(top))); g.addColorStop(1, rgb(waterAt(bot)));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+  ctx.setTransform(dpr, 0, 0, dpr, (-cam.x + sx) * dpr, (-cam.y + sy) * dpr);
 
-        function updateResourcesDisplay() {
-            resourcesDisplay.innerHTML = '';
-            
-            Object.entries(gameState.resources).forEach(([resource, amount]) => {
-                if (amount > 0) {
-                    const resourceElement = document.createElement('div');
-                    resourceElement.className = 'resource';
-                    
-                    const resourceIcon = document.createElement('div');
-                    resourceIcon.className = 'resource-icon';
-                    resourceIcon.style.backgroundColor = resourceTypes[resource].color;
-                    
-                    const resourceText = document.createElement('div');
-                    resourceText.textContent = `${resourceTypes[resource].name}: ${amount}`;
-                    
-                    resourceElement.appendChild(resourceIcon);
-                    resourceElement.appendChild(resourceText);
-                    resourcesDisplay.appendChild(resourceElement);
-                }
-            });
-        }
+  // sky + surface
+  if (cam.y < 0) {
+    const sg = ctx.createLinearGradient(0, cam.y, 0, 0);
+    sg.addColorStop(0, '#7ec8f0'); sg.addColorStop(1, '#cdeefb');
+    ctx.fillStyle = sg; ctx.fillRect(cam.x - 50, cam.y - 10, VW + 100, -cam.y + 10);
+    ctx.fillStyle = '#fff6c2'; ctx.beginPath(); ctx.arc(cam.x + VW * 0.8, -150, 34, 0, TAU); ctx.fill();
+    drawBoat();
+  }
+  if (cam.y < 40) {
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.moveTo(cam.x - 60, 0);
+    for (let x = cam.x - 60; x < cam.x + VW + 60; x += 20) ctx.lineTo(x, Math.sin(x * 0.03 + T * 2) * 3);
+    ctx.lineTo(cam.x + VW + 60, 4); ctx.lineTo(cam.x - 60, 4); ctx.fill();
+  }
+  // light rays near the surface
+  if (cam.y < 600) {
+    ctx.save(); ctx.globalAlpha = clamp(1 - cam.y / 600, 0, 1) * 0.08; ctx.fillStyle = '#fff';
+    for (let i = 0; i < 6; i++) {
+      const x0 = cam.x + ((i * 260 + T * 12) % (VW + 300)) - 150;
+      ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0 + 60, 0); ctx.lineTo(x0 + 260, 700); ctx.lineTo(x0 + 140, 700); ctx.fill();
+    }
+    ctx.restore();
+  }
+  // depth markers
+  ctx.font = '600 13px "Exo 2", Arial'; ctx.textAlign = 'left';
+  const startD = Math.max(100, Math.ceil(cam.y / 100) * 100);
+  for (let d = startD; d < cam.y + VH; d += 100) {
+    ctx.strokeStyle = d % 500 === 0 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cam.x, d); ctx.lineTo(cam.x + VW, d); ctx.stroke();
+    ctx.fillStyle = d > stat.rating ? 'rgba(255,90,90,0.6)' : 'rgba(255,255,255,0.4)';
+    ctx.fillText(d + 'm', cam.x + 8, d - 4);
+  }
+  // marine snow
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  for (const s of snow) {
+    const x = cam.x + (((s.x * VW - cam.x * s.d + T * 6 * s.d) % VW) + VW) % VW;
+    const y = cam.y + (((s.y * VH - cam.y * s.d + T * 10 * s.d) % VH) + VH) % VH;
+    if (y > 0) ctx.fillRect(x, y, s.s, s.s);
+  }
+  // walls
+  ctx.fillStyle = '#04080c';
+  if (cam.x < 0) ctx.fillRect(cam.x - 10, Math.max(cam.y, 0), -cam.x + 10, VH);
+  if (cam.x + VW > WW) ctx.fillRect(WW, Math.max(cam.y, 0), cam.x + VW - WW + 10, VH);
+  // seabed
+  if (cam.y + VH > WH - 80) {
+    ctx.fillStyle = '#1a1712'; ctx.fillRect(cam.x - 20, WH - 20, VW + 40, 200);
+    ctx.fillStyle = '#26211a';
+    for (const r of rocks) if (r.x > cam.x - 100 && r.x < cam.x + VW + 100) { ctx.beginPath(); ctx.ellipse(r.x, WH - 20, r.w / 2, r.h, 0, Math.PI, 0); ctx.fill(); }
+  }
+  // vents
+  for (const v of vents) {
+    if (!onScreen(v.x, v.y, 220)) continue;
+    ctx.fillStyle = '#2b3a44'; ctx.beginPath(); ctx.moveTo(v.x - 22, v.y + 14); ctx.lineTo(v.x - 8, v.y - 4); ctx.lineTo(v.x + 8, v.y - 4); ctx.lineTo(v.x + 22, v.y + 14); ctx.fill();
+    ctx.fillStyle = 'rgba(160,230,255,0.08)'; ctx.fillRect(v.x - 30, v.y - 190, 60, 190);
+  }
+  // loot
+  for (const r of res) {
+    if (r.taken || !onScreen(r.x, r.y)) continue;
+    const R = RES[r.k], rad = R.size / 2;
+    if (r.k === 'seaweed') {
+      ctx.strokeStyle = R.color; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(r.x + i * 5, r.y + rad); ctx.quadraticCurveTo(r.x + i * 5 + Math.sin(T * 2 + r.ph + i) * 6, r.y, r.x + i * 4, r.y - rad - 4); ctx.stroke(); }
+      ctx.lineCap = 'butt';
+    } else if (r.k === 'crystal' || r.k === 'abyssite') {
+      ctx.fillStyle = R.color; ctx.beginPath(); ctx.moveTo(r.x, r.y - rad - 3); ctx.lineTo(r.x + rad * 0.7, r.y); ctx.lineTo(r.x, r.y + rad + 3); ctx.lineTo(r.x - rad * 0.7, r.y); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.moveTo(r.x, r.y - rad); ctx.lineTo(r.x + rad * 0.3, r.y - 2); ctx.lineTo(r.x, r.y); ctx.fill();
+    } else if (r.k === 'treasure') {
+      ctx.fillStyle = '#7a4a1e'; ctx.fillRect(r.x - rad, r.y - rad * 0.6, rad * 2, rad * 1.3);
+      ctx.fillStyle = R.color; ctx.fillRect(r.x - rad, r.y - rad * 0.65, rad * 2, 4); ctx.fillRect(r.x - 3, r.y - 4, 6, 8);
+    } else {
+      ctx.fillStyle = R.color; ctx.beginPath(); ctx.arc(r.x, r.y, rad, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(r.x - rad / 3, r.y - rad / 3, rad / 3.5, 0, TAU); ctx.fill();
+    }
+    ctx.strokeStyle = R.color; ctx.globalAlpha = 0.5; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(r.x, r.y, rad + 5 + Math.sin(T * 3 + r.ph) * 2, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  for (const tk of tanks) {
+    if (tk.taken || !onScreen(tk.x, tk.y)) continue;
+    ctx.fillStyle = '#00aaff'; ctx.fillRect(tk.x - 6, tk.y - 11, 12, 22);
+    ctx.fillStyle = '#9ad'; ctx.fillRect(tk.x - 3, tk.y - 15, 6, 4);
+    ctx.fillStyle = '#fff'; ctx.font = '800 8px Arial'; ctx.textAlign = 'center'; ctx.fillText('O2', tk.x, tk.y + 3);
+  }
+  if (!save.relic && onScreen(relic.x, relic.y, 150)) {
+    const p = 1 + Math.sin(T * 2) * 0.08;
+    ctx.save(); ctx.translate(relic.x, relic.y); ctx.scale(p, p);
+    ctx.fillStyle = '#ffe082'; ctx.beginPath(); ctx.moveTo(0, -26); ctx.lineTo(18, 0); ctx.lineTo(0, 26); ctx.lineTo(-18, 0); ctx.fill();
+    ctx.fillStyle = '#ff6f00'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+  // creatures
+  for (const j of jellies) if (onScreen(j.x, j.y)) drawJelly(j);
+  for (const s of sharks) if (onScreen(s.x, s.y, 100)) drawShark(s);
+  for (const a of anglers) if (onScreen(a.x, a.y, 100)) drawAngler(a);
+  // particles
+  for (const p of parts) {
+    ctx.globalAlpha = clamp(p.life / p.max, 0, 1); ctx.fillStyle = p.col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  if (state !== 'title') drawDiver();
 
-        function render() {
-            // Clear canvas
-            ctx.fillStyle = gameState.backgroundColor;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Apply depth-based gradient overlay
-            renderBackgroundGradient();
-            
-            // Render game objects (apply camera offset)
-            renderGameObjects();
-            
-            // Render diver
-            renderDiver();
-            
-            // Render depth lines
-            renderDepthLines();
-            
-            // Render vignette effect at deeper depths
-            renderDepthEffect();
-        }
+  // darkness
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const dCenter = cam.y + VH / 2;
+  const darkA = clamp((dCenter - 250) / 1500, 0, 0.97);
+  if (darkA > 0.01) {
+    dctx.setTransform(1, 0, 0, 1, 0, 0);
+    dctx.globalCompositeOperation = 'source-over';
+    dctx.clearRect(0, 0, dark.width, dark.height);
+    dctx.fillStyle = `rgba(0,3,10,${darkA})`; dctx.fillRect(0, 0, dark.width, dark.height);
+    dctx.globalCompositeOperation = 'destination-out';
+    dctx.setTransform(dpr, 0, 0, dpr, -cam.x * dpr, -cam.y * dpr);
+    const hole = (x, y, r, a = 1) => {
+      if (!onScreen(x, y, r)) return;
+      const gg = dctx.createRadialGradient(x, y, 0, x, y, r);
+      gg.addColorStop(0, `rgba(0,0,0,${a})`); gg.addColorStop(0.6, `rgba(0,0,0,${a * 0.75})`); gg.addColorStop(1, 'rgba(0,0,0,0)');
+      dctx.fillStyle = gg; dctx.beginPath(); dctx.arc(x, y, r, 0, TAU); dctx.fill();
+    };
+    if (state !== 'title') hole(dv.x + dv.face * 30, dv.y, stat.light);
+    for (const j of jellies) hole(j.x, j.y, 45, 0.6);
+    for (const a of anglers) hole(a.x + a.dir * 26, a.y - 30, 60, 0.85);
+    for (const r of res) if (!r.taken && (r.k === 'abyssite' || r.k === 'treasure')) hole(r.x, r.y, 34, 0.7);
+    for (const tk of tanks) if (!tk.taken) hole(tk.x, tk.y, 26, 0.5);
+    for (const v of vents) hole(v.x, v.y - 80, 70, 0.35);
+    if (!save.relic) hole(relic.x, relic.y, 160, 0.9);
+    ctx.drawImage(dark, 0, 0);
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // pressure + hurt overlays
+  if (state !== 'title' && depthNow() > stat.rating) {
+    const a = 0.25 + Math.sin(T * 8) * 0.12;
+    const vg = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.25, VW / 2, VH / 2, VH * 0.8);
+    vg.addColorStop(0, 'rgba(255,0,0,0)'); vg.addColorStop(1, `rgba(200,0,0,${a})`);
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, VW, VH);
+  }
+  if (hurtFlash > 0) { ctx.fillStyle = `rgba(255,40,40,${hurtFlash * 0.5})`; ctx.fillRect(0, 0, VW, VH); }
+}
+function drawBoat() {
+  const x = WW / 2, y = Math.sin(T * 1.5) * 2;
+  ctx.fillStyle = '#8d4b22'; ctx.beginPath(); ctx.moveTo(x - 90, y - 18); ctx.lineTo(x + 90, y - 18); ctx.lineTo(x + 66, y + 10); ctx.lineTo(x - 66, y + 10); ctx.fill();
+  ctx.fillStyle = '#f5f5f5'; ctx.fillRect(x - 40, y - 48, 60, 30);
+  ctx.fillStyle = '#4fc3f7'; ctx.fillRect(x - 32, y - 42, 14, 12); ctx.fillRect(x - 10, y - 42, 14, 12);
+  ctx.fillStyle = '#c62828'; ctx.fillRect(x - 90, y - 22, 180, 5);
+  ctx.fillStyle = '#fff'; ctx.font = '800 11px "Exo 2", Arial'; ctx.textAlign = 'center'; ctx.fillText('DIVE SHOP', x + 50, y - 26);
+}
+function drawDiver() {
+  const x = dv.x, y = dv.y, f = dv.face;
+  if (dv.inv > 0 && Math.floor(T * 16) % 2 === 0) return;
+  ctx.save(); ctx.translate(x, y); ctx.scale(f, 1);
+  const tilt = clamp(dv.vy / 600, -0.5, 0.5); ctx.rotate(tilt);
+  const k = Math.sin(dv.kick) * 6;
+  ctx.fillStyle = '#222'; // fins
+  ctx.beginPath(); ctx.moveTo(-22, 2); ctx.lineTo(-36, -4 + k); ctx.lineTo(-34, 6 + k); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-22, 6); ctx.lineTo(-36, 6 - k); ctx.lineTo(-33, 14 - k); ctx.fill();
+  ctx.fillStyle = save.color; ctx.beginPath(); ctx.ellipse(-4, 4, 20, 9, 0, 0, TAU); ctx.fill(); // body
+  ctx.fillStyle = '#555'; ctx.fillRect(-16, -8, 18, 7); // tank
+  ctx.fillStyle = save.color; ctx.beginPath(); ctx.arc(16, 0, 9, 0, TAU); ctx.fill(); // head
+  ctx.fillStyle = '#1b2a33'; ctx.beginPath(); ctx.ellipse(20, -1, 5, 5, 0, -Math.PI / 2, Math.PI / 2); ctx.fill(); // mask
+  ctx.fillStyle = '#9be7ff'; ctx.fillRect(20, -3, 3, 3);
+  ctx.fillStyle = '#ffd54f'; ctx.fillRect(24, 1, 4, 3); // headlamp
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.setLineDash([3, 5]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(x, y, stat.net, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+}
+function drawJelly(j) {
+  ctx.fillStyle = 'rgba(255,120,220,0.55)'; ctx.beginPath(); ctx.arc(j.x, j.y, j.r, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = 'rgba(255,200,240,0.6)'; ctx.fillRect(j.x - j.r, j.y - 1, j.r * 2, 3);
+  ctx.strokeStyle = 'rgba(255,170,240,0.55)'; ctx.lineWidth = 2;
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath(); ctx.moveTo(j.x + i * j.r / 2.5, j.y + 1);
+    ctx.quadraticCurveTo(j.x + i * j.r / 2.5 + Math.sin(T * 3 + i + j.ph) * 6, j.y + j.r, j.x + i * j.r / 2.5, j.y + j.r * 1.9);
+    ctx.stroke();
+  }
+}
+function drawShark(s) {
+  ctx.save(); ctx.translate(s.x, s.y); ctx.scale(s.dir, 1);
+  const wag = Math.sin(T * (s.st === 'chase' ? 12 : 5)) * 6;
+  ctx.fillStyle = '#6d7f8f';
+  ctx.beginPath(); ctx.moveTo(-40, 0); ctx.lineTo(-64, -16 + wag); ctx.lineTo(-56, 0); ctx.lineTo(-64, 16 + wag); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, 0, 46, 14, 0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-8, -12); ctx.lineTo(4, -32); ctx.lineTo(14, -11); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(6, 8); ctx.lineTo(-6, 24); ctx.lineTo(16, 10); ctx.fill();
+  ctx.fillStyle = '#b4c3cf'; ctx.beginPath(); ctx.ellipse(6, 6, 32, 6, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(30, -3, 2.5, 0, TAU); ctx.fill();
+  if (s.st === 'chase') { ctx.fillStyle = '#fff'; for (let i = 0; i < 5; i++) ctx.fillRect(30 + i * 3, 6, 2, 3); }
+  ctx.restore();
+}
+function drawAngler(a) {
+  ctx.save(); ctx.translate(a.x, a.y); ctx.scale(a.dir, 1);
+  ctx.fillStyle = '#2b1d2e'; ctx.beginPath(); ctx.ellipse(0, 0, 30, 22, 0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(-44, -14); ctx.lineTo(-44, 14); ctx.fill();
+  ctx.fillStyle = '#fff'; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.moveTo(12 + i * 3, 6); ctx.lineTo(13.5 + i * 3, 12); ctx.lineTo(15 + i * 3, 6); ctx.fill(); }
+  ctx.fillStyle = '#d4ff5a'; ctx.beginPath(); ctx.arc(14, -8, 3, 0, TAU); ctx.fill();
+  ctx.strokeStyle = '#4a3550'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(6, -20); ctx.quadraticCurveTo(20, -44, 26, -30); ctx.stroke();
+  ctx.fillStyle = '#9fffe0'; ctx.beginPath(); ctx.arc(26, -30, 4 + Math.sin(T * 4 + a.ph), 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function drawMinimap() {
+  const W = mm.width, H = mm.height, sx = W / WW, sy = H / WH;
+  mctx.fillStyle = '#021220'; mctx.fillRect(0, 0, W, H);
+  mctx.fillStyle = 'rgba(41,182,246,0.35)';
+  const cw = CELL * sx, ch = CELL * sy;
+  for (let y = 0; y < GY; y++) for (let x = 0; x < GX; x++) if (explored[y * GX + x]) mctx.fillRect(x * cw, y * ch, cw + 0.3, ch + 0.3);
+  mctx.fillStyle = 'rgba(255,82,82,0.6)'; mctx.fillRect(0, stat.rating * sy, W, 1);
+  if (stat.sonar) {
+    for (const r of res) if (!r.taken && Math.abs(r.y - dv.y) < 900) { mctx.fillStyle = RES[r.k].color; mctx.fillRect(r.x * sx - 0.5, r.y * sy - 0.5, 1.5, 1.5); }
+    mctx.fillStyle = '#ff5252';
+    for (const s of sharks) if (Math.abs(s.y - dv.y) < 900) mctx.fillRect(s.x * sx - 1, s.y * sy - 1, 2.5, 2.5);
+    for (const a of anglers) if (Math.abs(a.y - dv.y) < 900) mctx.fillRect(a.x * sx - 1, a.y * sy - 1, 2.5, 2.5);
+  }
+  if (!save.relic && save.maxDepth > 4000) { mctx.fillStyle = '#ffe082'; mctx.fillRect(relic.x * sx - 2, relic.y * sy - 2, 4, 4); }
+  mctx.fillStyle = save.color; mctx.beginPath(); mctx.arc(dv.x * sx, dv.y * sy, 2.5, 0, TAU); mctx.fill();
+  mctx.strokeStyle = 'rgba(255,255,255,0.5)'; mctx.strokeRect(cam.x * sx, Math.max(0, cam.y) * sy, VW * sx, VH * sy);
+}
 
-        function renderBackgroundGradient() {
-            // Create a depth-based gradient
-            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            gradient.addColorStop(0, '#0077be'); // Lighter blue at top
-            gradient.addColorStop(0.3, '#005a87'); // Medium blue
-            gradient.addColorStop(1, '#003151'); // Dark blue at bottom
-            
-            // Apply gradient with transparency
-            ctx.globalAlpha = 0.3 + Math.min(0.7, gameState.currentDepth / 1500);
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.globalAlpha = 1.0;
-        }
+/* =========================================================
+   HUD / SCREENS
+   ========================================================= */
+const hud = { o2bar: $('o2bar'), o2txt: $('o2txt'), bag: $('bagline'), depth: $('depth'), rating: $('rating') };
+let mmT = 0;
+function updateHud(dt) {
+  const max = stat.tank, pct = clamp(dv.o2 / max, 0, 1);
+  const w = (pct * 100).toFixed(1) + '%';
+  if (hud.o2bar._w !== w) { hud.o2bar._w = w; hud.o2bar.style.width = w; }
+  const col = pct > 0.5 ? '#00aaff' : pct > 0.25 ? '#ffaa00' : '#ff3300';
+  if (hud.o2bar._c !== col) { hud.o2bar._c = col; hud.o2bar.style.background = col; hud.o2bar.style.boxShadow = '0 0 8px ' + col; }
+  setText(hud.o2txt, Math.ceil(dv.o2) + 's / ' + max + 's');
+  setText(hud.bag, `BAG ${dv.bagN}/${stat.bag}` + (dv.bagN >= stat.bag ? ' <span class="bad">FULL</span>' : ''));
+  const d = depthNow();
+  setText(hud.depth, d + 'm');
+  const over = d > stat.rating;
+  setText(hud.rating, over ? 'PRESSURE! SUIT RATED ' + stat.rating + 'm' : 'SUIT SAFE TO ' + stat.rating + 'm');
+  hud.rating.classList.toggle('bad', over);
+  mmT -= dt; if (mmT <= 0) { mmT = 0.15; drawMinimap(); }
+  renderShopBtn();
+}
+function renderShopBtn() {
+  const b = $('shopBtn'), atSurf = dv.y < SURF;
+  const any = atSurf && UKEYS.some(k => save.upg[k] < UPG[k].costs.length && canAfford(UPG[k].costs[save.upg[k]]));
+  b.classList.toggle('ready', any);
+  setText(b, atSurf ? (any ? 'SHOP &#9679;' : 'SHOP') : 'SHOP (SURFACE)');
+}
+const SCREENS = ['title', 'pause', 'shop', 'blackout', 'win'];
+function showScreen(id) { SCREENS.forEach(s => $(s).classList.toggle('hidden', s !== id)); $('hud').classList.toggle('hidden', id === 'title'); }
 
-        function renderGameObjects() {
-            gameState.levelObjects.forEach(obj => {
-                // Skip if out of view
-                if (isOutOfView(obj)) return;
-                
-                // Skip if already collected
-                if ((obj.type === 'resource' || obj.type === 'oxygen') && obj.collected) return;
-                
-                // Calculate screen position
-                const screenX = obj.x - gameState.camera.x;
-                const screenY = obj.y - gameState.camera.y;
-                
-                if (obj.type === 'resource') {
-                    // Render resource
-                    const resourceType = resourceTypes[obj.resourceType];
-                    ctx.fillStyle = resourceType.color;
-                    ctx.beginPath();
-                    ctx.arc(screenX, screenY, resourceType.size / 2, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Add shine effect
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-                    ctx.beginPath();
-                    ctx.arc(screenX - resourceType.size / 4, screenY - resourceType.size / 4, resourceType.size / 6, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Add pulsing effect
-                    const pulseSize = Math.sin(Date.now() / 500) * 3;
-                    ctx.strokeStyle = resourceType.color;
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(screenX, screenY, (resourceType.size / 2) + pulseSize, 0, Math.PI * 2);
-                    ctx.stroke();
-                } else if (obj.type === 'oxygen') {
-                    // Render oxygen tank
-                    ctx.fillStyle = oxygenTank.color;
-                    ctx.beginPath();
-                    ctx.arc(screenX, screenY, oxygenTank.size / 2, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    // Add oxygen symbol
-                    ctx.fillStyle = 'white';
-                    ctx.font = '10px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('O₂', screenX, screenY);
-                    
-                    // Add glow effect
-                    const pulseSize = Math.sin(Date.now() / 300) * 3;
-                    ctx.strokeStyle = 'rgba(0, 170, 255, 0.8)';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(screenX, screenY, (oxygenTank.size / 2) + pulseSize, 0, Math.PI * 2);
-                    ctx.stroke();
-                    
-                } else if (obj.type === 'decor') {
-                    // Render decorative element
-                    ctx.fillStyle = obj.color;
-                    ctx.fillRect(screenX, screenY, obj.width, obj.height);
-                }
-            });
-        }
+function renderColors() {
+  $('colors').innerHTML = COLORS.map(c => `<div class="sw ${c === save.color ? 'sel' : ''}" data-c="${c}" style="background:${c}"></div>`).join('');
+}
+function renderTitle() {
+  renderColors();
+  $('contBtn').classList.toggle('hidden', !save.started);
+  setText($('newBtn'), save.started ? 'NEW DIVE' : 'DIVE IN');
+  $('newBtn').dataset.confirm = '';
+  $('migrated').classList.toggle('hidden', !migrated);
+}
+function fmtCost(cost) {
+  return Object.entries(cost).map(([k, n]) => `<span class="${save.bank[k] < n ? 'no' : ''}"><span class="dot" style="background:${RES[k].color}"></span>${n} ${RES[k].name}</span>`).join(' &nbsp; ');
+}
+function renderShop() {
+  $('bankLine').innerHTML = RKEYS.map(k => `<span><span class="dot" style="background:${RES[k].color}"></span>${RES[k].name} ${save.bank[k]}</span>`).join('');
+  $('shopList').innerHTML = UKEYS.map(k => {
+    const U = UPG[k], l = save.upg[k], max = U.costs.length, maxed = l >= max;
+    const cur = U.unit ? U.vals[l] + U.unit : (k === 'reg' ? '-' + Math.round((1 - Math.pow(0.85, l)) * 100) + '% air use' : (l ? 'ON' : 'OFF'));
+    const nxt = maxed ? '' : (U.unit ? ' &rarr; ' + U.vals[l + 1] + U.unit : (k === 'reg' ? ' &rarr; -' + Math.round((1 - Math.pow(0.85, l + 1)) * 100) + '%' : ' &rarr; ON'));
+    return `<div class="item"><div><div class="n">${U.name}</div><div class="d">${U.desc}</div>` +
+      `<div class="lv">Level ${l}/${max} &middot; ${cur}${nxt}</div>` +
+      (maxed ? '' : `<div class="cost">${fmtCost(U.costs[l])}</div>`) + `</div>` +
+      `<button data-u="${k}" ${maxed || !canAfford(U.costs[l]) ? 'disabled' : ''}>${maxed ? 'MAXED' : 'BUY'}</button></div>`;
+  }).join('');
+}
+function openShop() {
+  if (state !== 'play') return;
+  if (dv.y >= SURF) { toast('Surface to use the shop'); return; }
+  audio(); state = 'shop'; renderShop(); showScreen('shop');
+}
+function closeShop() { if (state !== 'shop') return; state = 'play'; showScreen(null); }
+function pauseGame() { if (state !== 'play') return; state = 'pause'; Object.keys(keys).forEach(k => keys[k] = false); persist(); applyMute(); showScreen('pause'); }
+function resumeGame() { if (state !== 'pause') return; audio(); state = 'play'; showScreen(null); }
+function startGame(fresh) {
+  audio();
+  if (fresh) {
+    const c = save.color, m = save.muted;
+    Object.assign(save, defSave()); save.color = c; save.muted = m;
+    explored = new Uint8Array(GX * GY);
+    genWorld();
+  }
+  save.started = true;
+  RKEYS.forEach(k => dv.bag[k] = 0); dv.bagN = 0;
+  dv.x = WW / 2; dv.y = 20; dv.vx = dv.vy = 0; dv.o2 = stat.tank; dv.inv = 0; dv.stun = 0;
+  persist();
+  state = 'play'; showScreen(null);
+  $('boostBtn').classList.toggle('hidden', !isTouch);
+  toast(fresh || save.dives === 0 ? 'Dive down, grab loot, come back up to bank it.' : 'Welcome back, diver.', 2.5);
+}
+function toTitle() { persist(); state = 'title'; renderTitle(); showScreen('title'); }
 
-        function isOutOfView(obj) {
-            return (obj.x + obj.width < gameState.camera.x ||
-                    obj.x - obj.width > gameState.camera.x + canvas.width ||
-                    obj.y + obj.height < gameState.camera.y ||
-                    obj.y - obj.height > gameState.camera.y + canvas.height);
-        }
+$('colors').addEventListener('click', e => { const s = e.target.closest('[data-c]'); if (!s) return; save.color = s.dataset.c; persist(); renderColors(); });
+$('contBtn').addEventListener('click', () => startGame(false));
+$('newBtn').addEventListener('click', () => {
+  const b = $('newBtn');
+  if (save.started && b.dataset.confirm !== '1') { b.dataset.confirm = '1'; setText(b, 'WIPE SAVE? CLICK AGAIN'); return; }
+  startGame(true);
+});
+$('resumeBtn').addEventListener('click', resumeGame);
+$('quitBtn').addEventListener('click', toTitle);
+$('muteBtn').addEventListener('click', () => { audio(); save.muted = !save.muted; persist(); applyMute(); });
+$('shopBtn').addEventListener('click', openShop);
+$('closeShop').addEventListener('click', closeShop);
+$('pauseBtn').addEventListener('click', pauseGame);
+$('boBtn').addEventListener('click', wakeUp);
+$('winBtn').addEventListener('click', () => { state = 'play'; showScreen(null); });
+$('shopList').addEventListener('click', e => {
+  const b = e.target.closest('[data-u]'); if (!b || b.disabled) return;
+  const k = b.dataset.u, l = save.upg[k], U = UPG[k];
+  if (l >= U.costs.length || !canAfford(U.costs[l])) return;
+  Object.entries(U.costs[l]).forEach(([r, n]) => save.bank[r] -= n);
+  save.upg[k] = l + 1;
+  if (k === 'tank') dv.o2 = stat.tank;
+  SFX.buy(); persist(); renderShop(); toast('Upgraded: ' + U.name);
+});
 
-        function renderDiver() {
-            const screenX = gameState.diver.x - gameState.camera.x;
-            const screenY = gameState.diver.y - gameState.camera.y;
-            
-            // Draw diver body
-            ctx.fillStyle = gameState.diver.color;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, gameState.diver.width / 2, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Add a glow effect
-            const gradient = ctx.createRadialGradient(
-                screenX, screenY, gameState.diver.width / 2,
-                screenX, screenY, gameState.diver.width
-            );
-            gradient.addColorStop(0, `rgba(${hexToRgb(gameState.diver.color)}, 0.3)`);
-            gradient.addColorStop(1, `rgba(${hexToRgb(gameState.diver.color)}, 0)`);
-            
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, gameState.diver.width, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Draw diving mask
-            ctx.fillStyle = '#333';
-            ctx.beginPath();
-            ctx.arc(screenX, screenY - 5, gameState.diver.width / 4, 0, Math.PI);
-            ctx.fill();
-            
-            // Draw oxygen tank
-            ctx.fillStyle = '#555';
-            ctx.fillRect(screenX - 5, screenY - 15, 10, 20);
-            
-            // Draw collection range indicator (faintly)
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, gameState.diver.collectRange, 0, Math.PI * 2);
-            ctx.stroke();
-            
-            // Add a small dotted line for visibility
-            ctx.setLineDash([3, 3]);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, gameState.diver.collectRange, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            
-            // Bubbles effect
-            if (Math.random() < 0.1) {
-                gameState.levelObjects.push({
-                    type: 'decor',
-                    x: gameState.diver.x,
-                    y: gameState.diver.y - 10,
-                    width: 3 + Math.random() * 5,
-                    height: 3 + Math.random() * 5,
-                    color: 'rgba(255, 255, 255, 0.5)'
-                });
-            }
-        }
+/* =========================================================
+   INPUT
+   ========================================================= */
+const GAME_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'];
+document.addEventListener('keydown', e => {
+  if (GAME_KEYS.includes(e.code)) e.preventDefault();
+  if (state === 'play') audio();
+  keys[e.code] = true;
+  if (e.code === 'KeyP' || e.code === 'Escape') {
+    if (state === 'play') pauseGame(); else if (state === 'pause') resumeGame(); else if (state === 'shop') closeShop();
+  } else if (e.code === 'KeyB') { if (state === 'play') openShop(); else if (state === 'shop') closeShop(); }
+  else if (e.code === 'KeyM') { save.muted = !save.muted; persist(); applyMute(); }
+  else if (e.code === 'Enter') {
+    if (state === 'title') (save.started ? $('contBtn') : $('newBtn')).click();
+    else if (state === 'blackout') wakeUp();
+    else if (state === 'win') $('winBtn').click();
+  }
+});
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+const joyEl = $('joy'), knob = $('knob');
+window.addEventListener('pointerdown', e => {
+  if (state !== 'play' || e.pointerType === 'mouse') return;
+  if (e.target.closest && e.target.closest('button, a')) return;
+  if (joy.id === null) {
+    audio(); joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = joy.y = 0;
+    joyEl.style.left = joy.ox + 'px'; joyEl.style.top = joy.oy + 'px'; joyEl.style.display = 'block'; knob.style.transform = 'translate(0,0)';
+  }
+  if (e.cancelable) e.preventDefault();
+}, { passive: false });
+window.addEventListener('pointermove', e => {
+  if (e.pointerId !== joy.id) return;
+  let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const d = Math.hypot(dx, dy), R = 55;
+  if (d > R) { dx = dx / d * R; dy = dy / d * R; }
+  joy.x = dx / R; joy.y = dy / R; knob.style.transform = `translate(${dx}px,${dy}px)`;
+});
+const endJoy = e => { if (e.pointerId === joy.id) { joy.id = null; joy.x = joy.y = 0; joyEl.style.display = 'none'; } };
+window.addEventListener('pointerup', endJoy);
+window.addEventListener('pointercancel', endJoy);
+const bb = $('boostBtn');
+bb.addEventListener('pointerdown', e => { e.stopPropagation(); boostTouch = true; });
+bb.addEventListener('pointerup', () => { boostTouch = false; });
+bb.addEventListener('pointerleave', () => { boostTouch = false; });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { pauseGame(); persist(); } });
+window.addEventListener('blur', () => { Object.keys(keys).forEach(k => keys[k] = false); pauseGame(); });
+window.addEventListener('pagehide', persist);
 
-        function renderDepthLines() {
-            // Render depth markers every 100m
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.lineWidth = 1;
-            ctx.font = '14px Arial';
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-            
-            const startDepth = Math.floor(gameState.camera.y / 100) * 100;
-            
-            for (let depth = startDepth; depth <= startDepth + canvas.height + 100; depth += 100) {
-                if (depth < 0) continue;
-                
-                const y = depth - gameState.camera.y;
-                
-                // Only draw if in view
-                if (y >= 0 && y <= canvas.height) {
-                    ctx.beginPath();
-                    ctx.moveTo(0, y);
-                    ctx.lineTo(canvas.width, y);
-                    ctx.stroke();
-                    
-                    // Label the depth
-                    ctx.fillText(`${depth}m`, 10, y - 5);
-                }
-            }
-        }
+/* =========================================================
+   LOOP  (dt clamped, so a background tab can't teleport you)
+   ========================================================= */
+let last = performance.now(), titleCam = 0, timeScale = 1;
+function frame(now) {
+  requestAnimationFrame(frame);
+  let dt = (now - last) / 1000; last = now;
+  dt = clamp(dt, 0, 0.05) * timeScale;
+  if (state === 'play') {
+    let rem = dt;
+    while (rem > 0 && state === 'play') { const s = Math.min(rem, 0.05); update(s); rem -= s; }
+    updateHud(dt);
+  } else if (state === 'title') {
+    T += dt; titleCam += dt * 40;
+    cam.x = (WW - VW) / 2; cam.y = -120 + (titleCam % 2600);
+    for (const j of jellies) { j.x = j.bx + Math.sin(T * 0.6 + j.ph) * 40; j.y = j.by + Math.sin(T * 0.9 + j.ph) * 25; }
+  } else {
+    T += dt * 0.2;
+  }
+  render();
+}
 
-        function renderDepthEffect() {
-            // Add vignette effect that increases with depth
-            const depthFactor = Math.min(0.7, (gameState.currentDepth / 2000) * 0.7);
-            
-            const gradient = ctx.createRadialGradient(
-                canvas.width / 2, canvas.height / 2, canvas.height / 10,
-                canvas.width / 2, canvas.height / 2, canvas.height
-            );
-            
-            gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-            gradient.addColorStop(1, `rgba(0, 0, 30, ${depthFactor})`);
-            
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Add pressure/depth effect with blue tint
-            ctx.fillStyle = `rgba(0, 20, 40, ${depthFactor * 0.3})`;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-        
-        // Utility function to convert hex to rgb for glow effect
-        function hexToRgb(hex) {
-            // Remove # if present
-            hex = hex.replace('#', '');
-            
-            // Parse the components
-            const r = parseInt(hex.substring(0, 2), 16);
-            const g = parseInt(hex.substring(2, 4), 16);
-            const b = parseInt(hex.substring(4, 6), 16);
-            
-            return `${r}, ${g}, ${b}`;
-        }
+if (/[?&]debug\b/.test(location.search)) {
+  window.__dd = {
+    get state() { return state; }, get save() { return save; }, dv, cam, keys, stat,
+    get res() { return res; }, get sharks() { return sharks; }, get tanks() { return tanks; }, get parts() { return parts; },
+    set god(v) { god = v; }, set timeScale(v) { timeScale = v; },
+    step(dt, n) { for (let i = 0; i < n; i++) if (state === 'play') update(dt); },
+    tp(x, y) { dv.x = x; dv.y = y; dv.vx = dv.vy = 0; }
+  };
+}
 
-        // Start the game when loaded
-        window.onload = initGame;
-    </script>
+resize();
+renderTitle();
+applyMute();
+showScreen('title');
+requestAnimationFrame(frame);
+})();
+</script>
 </body>
 </html>
